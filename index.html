@@ -1883,7 +1883,7 @@ EXCLUDE only if the title makes it completely obvious that:
 - It is explicitly a review/meta-analysis/editorial (e.g. "A systematic review", "Editorial:", "Commentary:")
 - Exclusively animal or in vitro (e.g. "in mice", "in vitro susceptibility", "cell line")
 
-INCLUDE immediately if the title mentions ANY West African country: Benin, Burkina Faso, Cabo Verde, Cameroon, Chad, Cote d Ivoire, Ivory Coast, Gambia, Ghana, Guinea, Guinea-Bissau, Liberia, Mali, Mauritania, Niger, Nigeria, Senegal, Sierra Leone, Togo.
+INCLUDE immediately if the title mentions ANY West African country: Benin, Burkina Faso, Cabo Verde, Cameroon, Chad, Cote d Ivoire, Ivory Coast, Gambia, Ghana, Guinea, Guinea-Bissau, Liberia, Mali, Mauritania, Niger, Nigeria, Senegal, Sierra Leone, Togo. Also INCLUDE if the title mentions Africa broadly (sub-Saharan Africa, West Africa, Africa, tropical Africa, ECOWAS) — these may include West African data.
 
 MAYBE for anything unclear, ambiguous, or where geography is not mentioned.
 
@@ -1901,7 +1901,7 @@ Title: ${articleText.substring(0, 400)}`;
       'Authorization': `Bearer ${API_KEY}`
     },
     body: JSON.stringify({
-      model: 'llama-3.1-8b-instant',
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 100,
       temperature: 0.0,
       messages: [{ role: 'user', content: prompt }]
