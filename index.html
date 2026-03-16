@@ -481,6 +481,205 @@
   }
   .toast.show { opacity: 1; transform: translateY(0); }
 
+
+  /* ── FLASHCARD TITLE SCREENING ─────────────────────────────────────── */
+  .flashcard-layout {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    min-height: calc(100vh - 180px);
+  }
+  .flashcard-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+  .flashcard-progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .flashcard-progress-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .flashcard-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+  }
+  .flashcard-progress-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+  .flashcard {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 40px 48px;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    justify-content: center;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    position: relative;
+  }
+  .flashcard.flash-inc { border-color: var(--inc); box-shadow: 0 0 0 1px var(--inc); }
+  .flashcard.flash-exc { border-color: var(--exc); box-shadow: 0 0 0 1px var(--exc); }
+  .flashcard.flash-maybe { border-color: var(--maybe); box-shadow: 0 0 0 1px var(--maybe); }
+  .fc-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+  }
+  .fc-title {
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.45;
+    letter-spacing: -0.01em;
+  }
+  .fc-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .fc-predict {
+    margin-top: 4px;
+  }
+  .flashcard-keys {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+  .key-hint {
+    flex: 1;
+    max-width: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    border: 2px solid transparent;
+    transition: all 0.12s;
+    user-select: none;
+  }
+  .key-exc { background: var(--exc-bg); color: var(--exc); border-color: #4a1a18; }
+  .key-maybe { background: var(--maybe-bg); color: var(--maybe); border-color: #4a3008; }
+  .key-inc { background: var(--inc-bg); color: var(--inc); border-color: #0d3d28; }
+  .key-hint:hover { filter: brightness(1.4); transform: translateY(-1px); }
+  .key-hint:active { transform: translateY(0); filter: brightness(1.8); }
+  .key-badge {
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .flashcard-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* Sidebar */
+  .flashcard-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 160px);
+    position: sticky;
+    top: 80px;
+  }
+  .sidebar-header {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .sidebar-filters {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .sidebar-filters .filter-btn {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+  .sidebar-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+  .sidebar-item {
+    padding: 8px 10px;
+    border-radius: 4px;
+    margin-bottom: 3px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: background 0.1s;
+  }
+  .sidebar-item:hover { background: var(--surface2); }
+  .sidebar-item.active { background: var(--accent-bg); border-left-color: var(--accent); }
+  .sidebar-item.si-inc { border-left-color: var(--inc); }
+  .sidebar-item.si-exc { border-left-color: var(--exc); }
+  .sidebar-item.si-maybe { border-left-color: var(--maybe); }
+  .sidebar-item-title {
+    font-size: 11px;
+    color: var(--text2);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .sidebar-item-meta {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+    align-items: center;
+  }
+  .sidebar-footer {
+    padding: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* List view pagination */
+  .page-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--text3);
+  }
+  .page-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
@@ -620,22 +819,65 @@
 
   <!-- TITLE PANEL -->
   <div class="panel" id="panel-title">
-    <div class="info-box">
-      <strong>Title screening:</strong> Include / Exclude / Maybe based on title only. Included and Maybe records proceed to abstract screening.
+    <div id="title-flashcard-view">
+      <!-- Flashcard mode -->
+      <div class="flashcard-layout">
+        <div class="flashcard-main">
+          <div class="flashcard-progress-wrap">
+            <div class="flashcard-progress-bar"><div class="flashcard-progress-fill" id="fc-progress-fill"></div></div>
+            <div class="flashcard-progress-label" id="fc-progress-label">0 / 0</div>
+          </div>
+          <div class="flashcard" id="fc-card">
+            <div class="fc-num" id="fc-num">#0001</div>
+            <div class="fc-title" id="fc-title">Loading...</div>
+            <div class="fc-meta" id="fc-meta"></div>
+            <div class="fc-predict" id="fc-predict"></div>
+          </div>
+          <div class="flashcard-keys">
+            <div class="key-hint key-exc" onclick="fcDecide('exc')"><span class="key-badge">A</span> Exclude</div>
+            <div class="key-hint key-maybe" onclick="fcDecide('maybe')"><span class="key-badge">W</span> Maybe</div>
+            <div class="key-hint key-inc" onclick="fcDecide('inc')"><span class="key-badge">D</span> Include</div>
+          </div>
+          <div class="flashcard-actions">
+            <button class="btn btn-ghost" style="font-size:11px" onclick="fcUndo()">↩ Undo</button>
+            <button class="btn btn-ghost" style="font-size:11px" id="fc-ai-btn" onclick="fcPredict()">✦ AI Predict</button>
+            <button class="btn btn-ghost" style="font-size:11px" onclick="toggleListView()">☰ List View</button>
+            <button class="btn btn-primary" style="font-size:11px" onclick="switchTab('abstract')">→ Abstract</button>
+          </div>
+        </div>
+        <div class="flashcard-sidebar" id="fc-sidebar">
+          <div class="sidebar-header">
+            <div class="sidebar-filters">
+              <button class="filter-btn active-all" id="tf-all" onclick="setFilter('title','all')">All</button>
+              <button class="filter-btn" id="tf-pending" onclick="setFilter('title','pending')">Pending</button>
+              <button class="filter-btn" id="tf-inc" onclick="setFilter('title','inc')">Inc</button>
+              <button class="filter-btn" id="tf-exc" onclick="setFilter('title','exc')">Exc</button>
+              <button class="filter-btn" id="tf-maybe" onclick="setFilter('title','maybe')">Maybe</button>
+            </div>
+            <input class="search-box" id="title-search" placeholder="Search..." oninput="fcRenderSidebar()" style="font-size:11px;padding:6px 10px;margin-top:6px">
+          </div>
+          <div class="sidebar-list" id="fc-sidebar-list"></div>
+          <div class="sidebar-footer">
+            <button class="btn btn-ghost" style="font-size:10px;width:100%" onclick="toggleListView()">☰ Full List View</button>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="list-controls">
-      <input class="search-box" id="title-search" placeholder="Search titles..." oninput="renderList('title')">
-      <button class="filter-btn active-all" id="tf-all" onclick="setFilter('title','all')">All</button>
-      <button class="filter-btn" id="tf-pending" onclick="setFilter('title','pending')">Pending</button>
-      <button class="filter-btn" id="tf-inc" onclick="setFilter('title','inc')">Included</button>
-      <button class="filter-btn" id="tf-exc" onclick="setFilter('title','exc')">Excluded</button>
-      <button class="filter-btn" id="tf-maybe" onclick="setFilter('title','maybe')">Maybe</button>
-      <button class="predict-panel-btn" id="btn-predict-batch-title" onclick="predictBatch('title')">✦ Predict All</button>
-    </div>
-    <div id="title-list"></div>
-    <div style="margin-top:16px;display:flex;gap:10px">
-      <button class="btn btn-primary" onclick="switchTab('abstract')">Continue to Abstract →</button>
-      <button class="btn btn-ghost" onclick="exportCSV('title')">Export Decisions</button>
+    <div id="title-list-view" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="font-size:11px" onclick="toggleListView()">← Back to Flashcard</button>
+        <input class="search-box" id="title-list-search" placeholder="Search titles..." oninput="renderTitleList()" style="flex:1">
+        <select id="list-page-size" onchange="renderTitleList()" style="font-family:var(--mono);font-size:11px;padding:6px 10px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);border-radius:4px">
+          <option value="50">50 per page</option>
+          <option value="100" selected>100 per page</option>
+          <option value="250">250 per page</option>
+          <option value="500">500 per page</option>
+        </select>
+        <button class="btn btn-ghost" style="font-size:11px" onclick="exportCSV('title')">Export</button>
+        <button class="predict-panel-btn" id="btn-predict-batch-title" onclick="predictBatch('title')">✦ Predict All</button>
+      </div>
+      <div id="title-list-pages" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
+      <div id="title-list"></div>
     </div>
   </div>
 
@@ -675,13 +917,11 @@ const STORAGE_KEY = 'sr_screen_v2';
 
 const EXCLUSION_REASONS = [
   { code: 'E1', label: 'Wrong geography' },
-  { code: 'E2', label: 'Wrong pathogen/host' },
-  { code: 'E3', label: 'No resistance outcome' },
-  { code: 'E4', label: 'Review/editorial' },
-  { code: 'E5', label: 'Wrong design' },
-  { code: 'E6', label: 'Duplicate dataset' },
-  { code: 'E7', label: 'Inaccessible' },
-  { code: 'E8', label: 'Insufficient data' },
+  { code: 'E2', label: 'Wrong pathogen' },
+  { code: 'E3', label: 'No molecular data / in vitro / animal' },
+  { code: 'E4', label: 'No primary data' },
+  { code: 'E5', label: 'Duplicate dataset' },
+  { code: 'E6', label: 'Wrong language' },
 ];
 
 function handleFile(e, source) {
@@ -989,6 +1229,220 @@ function editDistance(a, b) {
   return matrix[a.length][b.length];
 }
 
+// ── FLASHCARD TITLE SCREENING ────────────────────────────────────────────
+let fcRecords = [];      // current filtered set
+let fcIndex = 0;         // current card index
+let fcListMode = false;  // list view toggle
+let fcListPage = 0;
+
+function fcInit() {
+  fcRecords = getTitleRecords();
+  // Find first undecided
+  const firstPending = fcRecords.findIndex(r => !r.titleDecision);
+  fcIndex = firstPending >= 0 ? firstPending : 0;
+  fcRenderCard();
+  fcRenderSidebar();
+}
+
+function getTitleRecords() {
+  let base = records.filter(r => !r.isDuplicate);
+  const q = (document.getElementById('title-search')?.value || '').toLowerCase();
+  if (q) base = base.filter(r => r.title.toLowerCase().includes(q));
+  const f = filters.title;
+  if (f === 'pending') return base.filter(r => !r.titleDecision);
+  if (f === 'inc') return base.filter(r => r.titleDecision === 'inc');
+  if (f === 'exc') return base.filter(r => r.titleDecision === 'exc');
+  if (f === 'maybe') return base.filter(r => r.titleDecision === 'maybe');
+  return base;
+}
+
+function fcRenderCard() {
+  const total = fcRecords.length;
+  const decided = fcRecords.filter(r => r.titleDecision).length;
+
+  // Progress
+  const pct = total > 0 ? (decided / total) * 100 : 0;
+  const fill = document.getElementById('fc-progress-fill');
+  const label = document.getElementById('fc-progress-label');
+  if (fill) fill.style.width = pct + '%';
+  if (label) label.textContent = decided + ' / ' + total;
+
+  if (!fcRecords.length) {
+    document.getElementById('fc-title').textContent = 'No records to show';
+    document.getElementById('fc-num').textContent = '';
+    document.getElementById('fc-meta').innerHTML = '';
+    return;
+  }
+
+  if (fcIndex >= fcRecords.length) fcIndex = fcRecords.length - 1;
+  if (fcIndex < 0) fcIndex = 0;
+
+  const rec = fcRecords[fcIndex];
+  document.getElementById('fc-num').textContent = '#' + String(fcIndex + 1).padStart(4, '0') + ' · ' + rec.source.toUpperCase();
+  document.getElementById('fc-title').textContent = rec.title || 'No title';
+
+  // Meta
+  const dec = rec.titleDecision;
+  let metaHTML = '';
+  if (rec.year) metaHTML += `<span class="meta-tag meta-year">${rec.year}</span>`;
+  if (dec) metaHTML += `<span class="decision-badge badge-${dec}">${dec.toUpperCase()}</span>`;
+  if (rec.prediction) metaHTML += `<span class="predict-badge predict-badge-${rec.prediction.verdict}">${Math.round(rec.prediction.score*100)}%</span>`;
+  document.getElementById('fc-meta').innerHTML = metaHTML;
+
+  // Flash color on card
+  const card = document.getElementById('fc-card');
+  card.className = 'flashcard' + (dec ? ' flash-' + dec : '');
+
+  // Prediction area
+  const predEl = document.getElementById('fc-predict');
+  if (rec.prediction) {
+    predEl.innerHTML = buildPredictHTML(rec.prediction);
+  } else {
+    predEl.innerHTML = '';
+  }
+
+  // Highlight sidebar item
+  document.querySelectorAll('.sidebar-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === rec.id);
+  });
+}
+
+function fcDecide(dec) {
+  if (!fcRecords.length) return;
+  const rec = fcRecords[fcIndex];
+  rec.titleDecision = dec;
+  save(); updateStats();
+
+  // Flash animation
+  const card = document.getElementById('fc-card');
+  card.classList.add('flash-' + dec);
+  setTimeout(() => {
+    // Advance to next undecided
+    let next = fcIndex + 1;
+    // If filter is pending, rebuild records
+    if (filters.title === 'pending') {
+      fcRecords = getTitleRecords();
+      // Stay at same index (next card slides in)
+      if (fcIndex >= fcRecords.length) fcIndex = Math.max(0, fcRecords.length - 1);
+    } else {
+      fcIndex = next < fcRecords.length ? next : fcIndex;
+    }
+    fcRenderCard();
+    fcRenderSidebar();
+  }, 120);
+}
+
+function fcUndo() {
+  // Go back one and clear decision
+  if (fcIndex > 0) fcIndex--;
+  else return;
+  const rec = fcRecords[fcIndex];
+  rec.titleDecision = null;
+  save(); updateStats();
+  fcRenderCard();
+  fcRenderSidebar();
+}
+
+function fcPredict() {
+  if (!fcRecords.length) return;
+  const rec = fcRecords[fcIndex];
+  const btn = document.getElementById('fc-ai-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Predicting...'; }
+  const predEl = document.getElementById('fc-predict');
+  predEl.innerHTML = '<div class="predict-loading">Analysing...</div>';
+
+  const text = [rec.title, rec.abstract].filter(Boolean).join('\n\n');
+  callPredictAPI(text).then(result => {
+    rec.prediction = result;
+    save();
+    predEl.innerHTML = buildPredictHTML(result);
+    const metaEl = document.getElementById('fc-meta');
+    if (metaEl) {
+      const dec = rec.titleDecision;
+      let metaHTML = '';
+      if (rec.year) metaHTML += `<span class="meta-tag meta-year">${rec.year}</span>`;
+      if (dec) metaHTML += `<span class="decision-badge badge-${dec}">${dec.toUpperCase()}</span>`;
+      metaHTML += `<span class="predict-badge predict-badge-${result.verdict}">${Math.round(result.score*100)}%</span>`;
+      metaEl.innerHTML = metaHTML;
+    }
+  }).catch(err => {
+    predEl.innerHTML = `<span style="font-family:var(--mono);font-size:11px;color:var(--exc)">Failed: ${err.message}</span>`;
+  }).finally(() => {
+    if (btn) { btn.disabled = false; btn.textContent = '✦ AI Predict'; }
+  });
+}
+
+function fcRenderSidebar() {
+  const container = document.getElementById('fc-sidebar-list');
+  if (!container) return;
+  const recs = getTitleRecords();
+  // Only render 80 items in sidebar for performance
+  const visible = recs.slice(Math.max(0, fcIndex - 10), fcIndex + 70);
+  const currentId = fcRecords[fcIndex]?.id;
+  container.innerHTML = visible.map(rec => {
+    const dec = rec.titleDecision;
+    const pred = rec.prediction;
+    return `<div class="sidebar-item ${dec ? 'si-' + dec : ''} ${rec.id === currentId ? 'active' : ''}" 
+      data-id="${rec.id}" onclick="fcJumpTo('${rec.id}')">
+      <div class="sidebar-item-title">${rec.title || 'No title'}</div>
+      <div class="sidebar-item-meta">
+        ${rec.year ? `<span class="meta-tag meta-year" style="font-size:9px">${rec.year}</span>` : ''}
+        ${dec ? `<span class="decision-badge badge-${dec}" style="font-size:9px">${dec.toUpperCase()}</span>` : ''}
+        ${pred ? `<span class="predict-badge predict-badge-${pred.verdict}" style="font-size:9px">${Math.round(pred.score*100)}%</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fcJumpTo(id) {
+  const idx = fcRecords.findIndex(r => r.id === id);
+  if (idx >= 0) { fcIndex = idx; fcRenderCard(); fcRenderSidebar(); }
+}
+
+function toggleListView() {
+  fcListMode = !fcListMode;
+  document.getElementById('title-flashcard-view').style.display = fcListMode ? 'none' : 'block';
+  document.getElementById('title-list-view').style.display = fcListMode ? 'block' : 'none';
+  if (fcListMode) renderTitleList();
+}
+
+function renderTitleList() {
+  const q = (document.getElementById('title-list-search')?.value || '').toLowerCase();
+  const pageSize = parseInt(document.getElementById('list-page-size')?.value || '100');
+  let recs = records.filter(r => !r.isDuplicate);
+  if (q) recs = recs.filter(r => r.title.toLowerCase().includes(q));
+
+  const totalPages = Math.ceil(recs.length / pageSize);
+  if (fcListPage >= totalPages) fcListPage = 0;
+
+  // Pagination buttons
+  const pageContainer = document.getElementById('title-list-pages');
+  if (pageContainer) {
+    let btns = '';
+    for (let i = 0; i < totalPages; i++) {
+      btns += `<button class="page-btn ${i === fcListPage ? 'active' : ''}" onclick="fcListPage=${i};renderTitleList()">${i+1}</button>`;
+    }
+    pageContainer.innerHTML = btns;
+  }
+
+  const slice = recs.slice(fcListPage * pageSize, (fcListPage + 1) * pageSize);
+  const container = document.getElementById('title-list');
+  if (!container) return;
+  container.innerHTML = slice.map((rec, i) => buildRecordHTML(rec, fcListPage * pageSize + i, 'title')).join('');
+}
+
+// Keyboard shortcuts for flashcard
+document.addEventListener('keydown', function(e) {
+  if (activeTab !== 'title' || fcListMode) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'a' || e.key === 'A') fcDecide('exc');
+  if (e.key === 'd' || e.key === 'D') fcDecide('inc');
+  if (e.key === 'w' || e.key === 'W') fcDecide('maybe');
+  if (e.key === 'z' || e.key === 'Z') fcUndo();
+  if (e.key === 'ArrowRight') { fcIndex = Math.min(fcIndex+1, fcRecords.length-1); fcRenderCard(); fcRenderSidebar(); }
+  if (e.key === 'ArrowLeft') { fcIndex = Math.max(fcIndex-1, 0); fcRenderCard(); fcRenderSidebar(); }
+});
+
 // TABS
 function switchTab(tab) {
   activeTab = tab;
@@ -1003,7 +1457,7 @@ function switchTab(tab) {
   const labels = { import:'IMPORT', dedup:'DEDUP', title:'TITLE SCREEN', abstract:'ABSTRACT SCREEN' };
   badge.textContent = labels[tab];
   
-  if (tab === 'title') renderList('title');
+  if (tab === 'title') fcInit();
   if (tab === 'abstract') renderList('abstract');
   updateStats();
 }
@@ -1016,7 +1470,14 @@ function setFilter(stage, f) {
     const el = document.getElementById(prefix + '-' + k);
     if (el) el.className = 'filter-btn' + (k === f ? ' active-' + k : '');
   });
-  renderList(stage);
+  if (stage === 'title' && !fcListMode) {
+    fcRecords = getTitleRecords();
+    fcIndex = 0;
+    fcRenderCard();
+    fcRenderSidebar();
+  } else {
+    renderList(stage);
+  }
 }
 
 function getFilteredRecords(stage) {
@@ -1251,27 +1712,24 @@ function setReason(id, stage, code, e) {
 
 // ── AI PREDICT ──────────────────────────────────────────────────────────────
 const IE_CRITERIA = `
-SYSTEMATIC REVIEW: Antimalarial resistance mutations in West Africa — spatiotemporal patterns.
+SYSTEMATIC REVIEW: Antimalarial drug resistance molecular markers in West Africa — spatiotemporal patterns.
 
 INCLUSION CRITERIA (all must be met):
-I1: Study reports molecular markers of antimalarial resistance (e.g. pfcrt, pfmdr1, pfkelch13, pfdhfr, pfdhps, pfpm2, pfmrp1 or other validated markers)
-I2: Study includes samples from ≥1 West African country (Benin, Burkina Faso, Cabo Verde, Gambia, Ghana, Guinea, Guinea-Bissau, Ivory Coast, Liberia, Mali, Mauritania, Niger, Nigeria, Senegal, Sierra Leone, Togo, or border countries Cameroon/Chad/Equatorial Guinea)
-I3: Primary data (clinical, field, or surveillance samples from humans)
-I4: Peer-reviewed journal article
-I5: Study includes Plasmodium falciparum or P. vivax
-I6: Sample collection date reported or inferable
-I7: No time restriction (all years)
+I1: Any Plasmodium species infecting humans (primary focus P. falciparum; all species included)
+I2: Reports drug resistance molecular markers — mutations, allele frequencies, or haplotypes (e.g. pfcrt, pfmdr1, pfkelch13/k13, pfdhfr, pfdhps, plasmepsin 2/3, or other validated/candidate markers per WHO Compendium). Insecticide resistance markers excluded.
+I3: Data from ≥1 West African country (Benin, Burkina Faso, Cabo Verde, Côte d'Ivoire, Gambia, Ghana, Guinea, Guinea-Bissau, Liberia, Mali, Mauritania, Niger, Nigeria, Senegal, Sierra Leone, Togo). Border countries case-by-case.
+I4: Primary research with original field data: cross-sectional surveys, cohort studies, case-control, clinical/therapeutic efficacy trials
+I5: Field isolates from naturally infected human patients (symptomatic or asymptomatic)
+I6: Published in English, French, or Portuguese
+I7: No time restriction
 
 EXCLUSION CRITERIA (any one triggers exclusion):
-E1: Wrong geography — no West African country included, or country unclear
-E2: Wrong pathogen — not malaria, or co-infection data without malaria stratification
-E3: No molecular marker for resistance reported; in vitro/ex vivo only without field samples
-E4: Not primary data — reviews, meta-analyses, editorials, conference abstracts, letters
-E5: Laboratory or animal studies only
-E6: Wrong study design — modelling only, case report (n<10), or no primary data
-E7: Inaccessible after reasonable attempts
-E8: Insufficient data to extract (no sample size, no prevalence/frequency reported)
-E9: Duplicate dataset (same data already included via another publication)
+E1: Wrong geography — no West African country, country unclear or unspecified
+E2: Wrong pathogen — not malaria, or co-infection without malaria stratification
+E3: No molecular resistance data — in vitro/ex vivo only, animal models, insecticide resistance only, no drug resistance markers
+E4: No primary data — reviews, meta-analyses, editorials, conference abstracts, letters, modelling/simulation without empirical molecular data, case reports
+E5: Duplicate dataset — same data reported in multiple publications
+E6: Wrong language — not English, French, or Portuguese
 `;
 
 async function predictOne(id, stage, e) {
@@ -1310,13 +1768,14 @@ async function predictOne(id, stage, e) {
 
 async function callPredictAPI(articleText) {
   if (!API_KEY) throw new Error('No API key — paste your Groq API key in the header field');
-  const prompt = `SR screener: antimalarial resistance mutations, West Africa.
-INCLUDE if: malaria resistance markers (pfcrt/pfmdr1/pfkelch13/pfdhfr/pfdhps/pfpm2 etc), West African country (Benin/BF/Ghana/Guinea/Ivory Coast/Liberia/Mali/Mauritania/Niger/Nigeria/Senegal/Sierra Leone/Togo/Gambia/Cabo Verde/Guinea-Bissau/Cameroon/Chad/Eq.Guinea), primary human field data, peer-reviewed, P.falciparum or P.vivax, collection date known.
-EXCLUDE if: no West African country, not malaria, no resistance marker, review/editorial/letter, lab/animal only, modelling only, n<10, no sample size reported.
-Respond ONLY with JSON: {"verdict":"inc","score":0.9,"reason":"1 sentence citing criteria"}
+  const prompt = `SR screener: antimalarial resistance mutations, West Africa. Be LIBERAL at title stage — only exclude if clearly wrong.
+INCLUDE or MAYBE if: malaria-related, West African country mentioned OR unclear, resistance/genetic/molecular topic, P.falciparum or P.vivax.
+EXCLUDE only if: clearly wrong geography (e.g. Asia/Americas only), clearly not malaria, clearly a review/meta-analysis/editorial, clearly animal/lab only.
+Do NOT exclude just because resistance markers aren't named in the title — many relevant papers don't mention them in the title.
+Respond ONLY with JSON: {"verdict":"inc","score":0.9,"reason":"1 sentence"}
 verdict: inc/exc/maybe. score: 0-1.
 
-Article: ${articleText.substring(0, 800)}`;
+Article title: ${articleText.substring(0, 300)}`;
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
