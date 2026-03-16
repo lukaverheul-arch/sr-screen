@@ -667,6 +667,39 @@
     border-top: 1px solid var(--border);
   }
 
+  /* Flashcard swipe animations */
+  @keyframes flyLeft {
+    from { transform: translateX(0) rotate(0deg); opacity: 1; }
+    to   { transform: translateX(-120%) rotate(-8deg); opacity: 0; }
+  }
+  @keyframes flyRight {
+    from { transform: translateX(0) rotate(0deg); opacity: 1; }
+    to   { transform: translateX(120%) rotate(8deg); opacity: 0; }
+  }
+  @keyframes flyUp {
+    from { transform: translateY(0) rotate(0deg); opacity: 1; }
+    to   { transform: translateY(-110%) rotate(3deg); opacity: 0; }
+  }
+  @keyframes slideInRight {
+    from { transform: translateX(100%) rotate(6deg); opacity: 0; }
+    to   { transform: translateX(0) rotate(0deg); opacity: 1; }
+  }
+  @keyframes slideInLeft {
+    from { transform: translateX(-100%) rotate(-6deg); opacity: 0; }
+    to   { transform: translateX(0) rotate(0deg); opacity: 1; }
+  }
+  @keyframes slideInDown {
+    from { transform: translateY(60%) rotate(-3deg); opacity: 0; }
+    to   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  }
+  .flashcard { transform-origin: center center; }
+  .fc-fly-left  { animation: flyLeft  0.28s cubic-bezier(0.4,0,0.6,1) forwards; }
+  .fc-fly-right { animation: flyRight 0.28s cubic-bezier(0.4,0,0.6,1) forwards; }
+  .fc-fly-up    { animation: flyUp    0.28s cubic-bezier(0.4,0,0.6,1) forwards; }
+  .fc-in-right  { animation: slideInRight 0.22s cubic-bezier(0.2,0,0.4,1) forwards; }
+  .fc-in-left   { animation: slideInLeft  0.22s cubic-bezier(0.2,0,0.4,1) forwards; }
+  .fc-in-down   { animation: slideInDown  0.22s cubic-bezier(0.2,0,0.4,1) forwards; }
+
   /* List view pagination */
   .page-btn {
     font-family: var(--mono);
@@ -1313,34 +1346,51 @@ function fcDecide(dec) {
   rec.titleDecision = dec;
   save(); updateStats();
 
-  // Flash animation
   const card = document.getElementById('fc-card');
-  card.classList.add('flash-' + dec);
+  const flyClass = dec === 'inc' ? 'fc-fly-right' : dec === 'exc' ? 'fc-fly-left' : 'fc-fly-up';
+  const inClass  = dec === 'inc' ? 'fc-in-right'  : dec === 'exc' ? 'fc-in-left'  : 'fc-in-down';
+
+  card.classList.add(flyClass);
   setTimeout(() => {
-    // Advance to next undecided
+    // Advance index
     let next = fcIndex + 1;
-    // If filter is pending, rebuild records
     if (filters.title === 'pending') {
       fcRecords = getTitleRecords();
-      // Stay at same index (next card slides in)
       if (fcIndex >= fcRecords.length) fcIndex = Math.max(0, fcRecords.length - 1);
     } else {
       fcIndex = next < fcRecords.length ? next : fcIndex;
     }
+    card.className = 'flashcard ' + inClass;
     fcRenderCard();
     fcRenderSidebar();
-  }, 120);
+    setTimeout(() => {
+      const c = document.getElementById('fc-card');
+      if (c) { c.classList.remove(inClass); }
+    }, 250);
+  }, 260);
 }
 
 function fcUndo() {
-  // Go back one and clear decision
   if (fcIndex > 0) fcIndex--;
   else return;
   const rec = fcRecords[fcIndex];
+  const prevDec = rec.titleDecision;
   rec.titleDecision = null;
   save(); updateStats();
-  fcRenderCard();
-  fcRenderSidebar();
+
+  const card = document.getElementById('fc-card');
+  // Fly out in reverse direction
+  const flyOut = prevDec === 'inc' ? 'fc-fly-left' : prevDec === 'exc' ? 'fc-fly-right' : 'fc-fly-up';
+  card.classList.add(flyOut);
+  setTimeout(() => {
+    card.className = 'flashcard fc-in-left';
+    fcRenderCard();
+    fcRenderSidebar();
+    setTimeout(() => {
+      const c = document.getElementById('fc-card');
+      if (c) c.classList.remove('fc-in-left');
+    }, 250);
+  }, 260);
 }
 
 function fcPredict() {
@@ -1768,14 +1818,24 @@ async function predictOne(id, stage, e) {
 
 async function callPredictAPI(articleText) {
   if (!API_KEY) throw new Error('No API key — paste your Groq API key in the header field');
-  const prompt = `SR screener: antimalarial resistance mutations, West Africa. Be LIBERAL at title stage — only exclude if clearly wrong.
-INCLUDE or MAYBE if: malaria-related, West African country mentioned OR unclear, resistance/genetic/molecular topic, P.falciparum or P.vivax.
-EXCLUDE only if: clearly wrong geography (e.g. Asia/Americas only), clearly not malaria, clearly a review/meta-analysis/editorial, clearly animal/lab only.
-Do NOT exclude just because resistance markers aren't named in the title — many relevant papers don't mention them in the title.
-Respond ONLY with JSON: {"verdict":"inc","score":0.9,"reason":"1 sentence"}
-verdict: inc/exc/maybe. score: 0-1.
+  const prompt = `You are doing title screening for a systematic review on antimalarial drug resistance in West Africa. Default to INCLUDE or MAYBE. Only use EXCLUDE when you are certain.
 
-Article title: ${articleText.substring(0, 300)}`;
+EXCLUDE only if the title makes it completely obvious that:
+- Geography is exclusively non-African (e.g. only mentions China, India, Thailand, Brazil, USA, Europe) — but NOT if Africa or any African country is mentioned
+- Topic is entirely unrelated to malaria (e.g. HIV, tuberculosis, cancer, diabetes, dengue)
+- It is explicitly a review/meta-analysis/editorial (e.g. "A systematic review", "Editorial:", "Commentary:")
+- Exclusively animal or in vitro (e.g. "in mice", "in vitro susceptibility", "cell line")
+
+INCLUDE immediately if the title mentions ANY West African country: Benin, Burkina Faso, Cabo Verde, Cameroon, Chad, Cote d Ivoire, Ivory Coast, Gambia, Ghana, Guinea, Guinea-Bissau, Liberia, Mali, Mauritania, Niger, Nigeria, Senegal, Sierra Leone, Togo.
+
+MAYBE for anything unclear, ambiguous, or where geography is not mentioned.
+
+Never exclude because a country name is missing from the title. Never exclude because resistance markers are not named. If in doubt: maybe.
+
+Respond ONLY with JSON (no extra text): {"verdict":"inc","score":0.9,"reason":"one sentence"}
+verdict = inc / exc / maybe
+
+Title: ${articleText.substring(0, 400)}`;
 
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
