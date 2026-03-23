@@ -2165,52 +2165,58 @@ Title: ${articleText.substring(0, 400)}`;
 // Predict all visible pending records
 async function predictBatch(stage) {
   const btn = document.getElementById('btn-predict-batch-' + stage);
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Predicting...'; }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting...'; }
 
-  // Snapshot the list now — filter unpredicted records
+  // Stop flag — pressing button again cancels
+  window._batchRunning = true;
+
   const recs = records.filter(r => !r.isDuplicate && !r.prediction);
   const total = recs.length;
   let done = 0;
   let failed = 0;
-  let consecutive429 = 0;
 
-  for (const rec of recs) {
-    let attempts = 0;
-    let success = false;
+  for (let i = 0; i < recs.length; i++) {
+    if (!window._batchRunning) break;
 
-    while (attempts < 5 && !success) {
-      try {
-        const text = rec.title || '';
-        const result = await callPredictAPI(text);
-        rec.prediction = result;
-        updateSaveStatus();
-        success = true;
-        done++;
-        consecutive429 = 0;
-      } catch(err) {
-        attempts++;
-        if (err.message.includes('429')) {
-          consecutive429++;
-          const wait = 2000 * Math.pow(2, attempts); // exponential backoff: 4s, 8s, 16s...
-          if (btn) btn.textContent = `⏳ ${done}/${total} — 429, waiting ${wait/1000}s`;
-          await new Promise(r => setTimeout(r, wait));
-        } else {
+    const rec = recs[i];
+    if (rec.prediction) continue; // already done
+
+    if (btn) btn.textContent = `⏳ ${done}/${total} — press to stop`;
+
+    // Single request, no inner retry loop
+    try {
+      const result = await callPredictAPI(rec.title || '');
+      rec.prediction = result;
+      done++;
+      updateSaveStatus();
+    } catch(err) {
+      if (err.message.includes('429')) {
+        // Hit rate limit — wait 10s then retry this same record once
+        if (btn) btn.textContent = `⏳ ${done}/${total} — rate limit, pausing 10s...`;
+        await sleep(10000);
+        try {
+          const result = await callPredictAPI(rec.title || '');
+          rec.prediction = result;
+          done++;
+          updateSaveStatus();
+        } catch(e2) {
           failed++;
-          break;
         }
+      } else {
+        failed++;
       }
     }
 
-    if (!success && attempts >= 5) failed++;
-    if (btn) btn.textContent = `⏳ ${done}/${total}${failed > 0 ? ' · '+failed+' failed' : ''}`;
-
-    // Always wait 2s between requests regardless of outcome
-    await new Promise(r => setTimeout(r, 2000));
+    // Always wait 2.5s before next request
+    await sleep(2500);
   }
 
+  window._batchRunning = false;
   if (btn) { btn.disabled = false; btn.textContent = '✦ Predict All'; }
-  toast(`Done: ${done} predicted, ${failed} failed`);
+  toast(`Done: ${done} predicted${failed > 0 ? ', ' + failed + ' failed' : ''}`);
 }
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // STATS
 function updateStats() {
