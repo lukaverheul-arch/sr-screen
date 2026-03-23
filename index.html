@@ -802,35 +802,62 @@
   <!-- IMPORT PANEL -->
   <div class="panel active" id="panel-import">
     <div class="info-box">
-      Upload exports from <strong>PubMed</strong> (CSV or XML), <strong>Scopus</strong> (CSV or RIS), and <strong>OVID/Medline</strong> (RIS or CSV) below. Accepted formats: <strong>.csv · .ris · .xml · .txt</strong>
+      Upload exports from all databases below. Accepted formats: <strong>.csv · .ris · .xml · .txt</strong>
     </div>
     
     <div class="upload-section">
       <div class="upload-row">
         <div class="upload-label">
-          <div class="upload-title">🔬 PubMed Export</div>
-          <div class="upload-sub" id="pubmed-status">CSV or XML format</div>
+          <div class="upload-title">🔬 PubMed / MEDLINE</div>
+          <div class="upload-sub" id="pubmed-status">PubMed format, CSV, or XML · includes abstracts</div>
         </div>
         <input type="file" id="file-pubmed" accept=".csv,.xml,.txt,.ris" onchange="handleFile(event,'pubmed')" class="file-input">
-        <label for="file-pubmed" class="btn btn-primary">Choose PubMed File</label>
+        <label for="file-pubmed" class="btn btn-primary">Choose File</label>
       </div>
       
       <div class="upload-row">
         <div class="upload-label">
-          <div class="upload-title">📡 Scopus Export</div>
-          <div class="upload-sub" id="scopus-status">CSV or RIS format</div>
+          <div class="upload-title">📡 Scopus</div>
+          <div class="upload-sub" id="scopus-status">RIS or CSV · tick Abstract in export fields</div>
         </div>
         <input type="file" id="file-scopus" accept=".csv,.ris,.txt" onchange="handleFile(event,'scopus')" class="file-input">
-        <label for="file-scopus" class="btn btn-primary">Choose Scopus File</label>
+        <label for="file-scopus" class="btn btn-primary">Choose File</label>
       </div>
 
       <div class="upload-row">
         <div class="upload-label">
-          <div class="upload-title">🧪 OVID / Medline Export</div>
-          <div class="upload-sub" id="ovid-status">RIS or CSV format · Export with "Complete Reference" fields</div>
+          <div class="upload-title">🧪 OVID / Embase</div>
+          <div class="upload-sub" id="ovid-status">RIS · Fields: Complete Reference</div>
         </div>
         <input type="file" id="file-ovid" accept=".ris,.csv,.txt" onchange="handleFile(event,'ovid')" class="file-input">
-        <label for="file-ovid" class="btn btn-primary">Choose OVID File</label>
+        <label for="file-ovid" class="btn btn-primary">Choose File</label>
+      </div>
+
+      <div class="upload-row">
+        <div class="upload-label">
+          <div class="upload-title">🌍 African Index Medicus (AIM)</div>
+          <div class="upload-sub" id="aim-status">CSV format · from globalindexmedicus.net</div>
+        </div>
+        <input type="file" id="file-aim" accept=".csv,.ris,.txt" onchange="handleFile(event,'aim')" class="file-input">
+        <label for="file-aim" class="btn btn-primary">Choose File</label>
+      </div>
+
+      <div class="upload-row">
+        <div class="upload-label">
+          <div class="upload-title">🌿 Global Health / CABI</div>
+          <div class="upload-sub" id="cabi-status">RIS or CSV · Full record format</div>
+        </div>
+        <input type="file" id="file-cabi" accept=".csv,.ris,.txt" onchange="handleFile(event,'cabi')" class="file-input">
+        <label for="file-cabi" class="btn btn-primary">Choose File</label>
+      </div>
+
+      <div class="upload-row">
+        <div class="upload-label">
+          <div class="upload-title">📰 African Journals Online (AJOL)</div>
+          <div class="upload-sub" id="ajol-status">RIS or CSV · when available</div>
+        </div>
+        <input type="file" id="file-ajol" accept=".csv,.ris,.txt" onchange="handleFile(event,'ajol')" class="file-input">
+        <label for="file-ajol" class="btn btn-primary">Choose File</label>
       </div>
     </div>
 
@@ -856,10 +883,14 @@
       </div>
     </div>
 
-    <div style="display:flex;gap:10px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <button class="btn btn-primary" id="btn-to-title" onclick="switchTab('title')" disabled>
         Continue to Title Screening →
       </button>
+      <button class="btn btn-ghost" id="btn-export-sample" onclick="exportRandomSample()" disabled style="font-size:11px">
+        📋 Export 30% Sample for Supervisor
+      </button>
+      <span id="sample-info" style="font-family:var(--mono);font-size:11px;color:var(--text3)"></span>
     </div>
   </div>
 
@@ -995,6 +1026,8 @@ function handleFile(e, source) {
         parsed = parseXML(text);
       } else if (name.endsWith('.ris') || text.includes('TY  -')) {
         parsed = parseRIS(text);
+      } else if (text.includes('PMID- ') && text.includes('TI  - ')) {
+        parsed = parsePubMed(text);
       } else {
         parsed = parseCSV(text);
       }
@@ -1025,11 +1058,11 @@ function handleFile(e, source) {
     toast('Failed to read file');
   };
   
-  reader.readAsText(file);
+  reader.readAsText(file, 'UTF-8');
 }
 
 function parseCSV(text) {
-  const lines = text.split('\n').filter(l => l.trim());
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/^\uFEFF/, '').split('\n').filter(l => l.trim());
   if (lines.length < 2) return [];
   
   const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
@@ -1089,6 +1122,55 @@ function parseXML(text) {
   return results;
 }
 
+function parsePubMed(text) {
+  const records = [];
+  let current = null;
+  let lastTag = null;
+
+  text.split('\n').forEach(line => {
+    // New record starts with PMID-
+    if (line.startsWith('PMID- ')) {
+      if (current && current.title) records.push(current);
+      current = { pmid: line.substring(6).trim() };
+      lastTag = 'PMID';
+    } else if (!current) {
+      return;
+    } else if (line.startsWith('TI  - ')) {
+      current.title = line.substring(6).trim();
+      lastTag = 'TI';
+    } else if (line.startsWith('AB  - ')) {
+      current.abstract = line.substring(6).trim();
+      lastTag = 'AB';
+    } else if (line.startsWith('AU  - ')) {
+      current.authors = (current.authors ? current.authors + '; ' : '') + line.substring(6).trim();
+      lastTag = 'AU';
+    } else if (line.startsWith('DP  - ')) {
+      current.year = line.substring(6).trim().substring(0, 4);
+      lastTag = 'DP';
+    } else if (line.startsWith('JT  - ')) {
+      current.journal = line.substring(6).trim();
+      lastTag = 'JT';
+    } else if (line.startsWith('LID - ') && line.includes('[doi]')) {
+      current.doi = line.substring(6).replace('[doi]','').trim();
+      lastTag = 'LID';
+    } else if (line.startsWith('AID - ') && line.includes('[doi]') && !current.doi) {
+      current.doi = line.substring(6).replace('[doi]','').trim();
+      lastTag = 'AID';
+    } else if (line.startsWith('      ') && lastTag === 'TI') {
+      // Continuation line for title
+      current.title += ' ' + line.trim();
+    } else if (line.startsWith('      ') && lastTag === 'AB') {
+      // Continuation line for abstract
+      current.abstract += ' ' + line.trim();
+    } else if (line.trim() === '') {
+      lastTag = null;
+    }
+  });
+  // Catch last record
+  if (current && current.title) records.push(current);
+  return records;
+}
+
 function parseRIS(text) {
   const records = [];
   let current = null;
@@ -1096,30 +1178,35 @@ function parseRIS(text) {
   text.split('\n').forEach(line => {
     const trimmed = line.trim();
     if (trimmed.startsWith('TY  -')) {
+      // Save previous record if no ER tag (e.g. CABI)
+      if (current && current.title) records.push(current);
       current = {};
-    } else if (trimmed === 'ER  -' && current) {
-      records.push(current);
-      current = null;
+    } else if (trimmed === 'ER  -' || trimmed === 'ER  -\r') {
+      if (current) { if (current.title) records.push(current); current = null; }
     } else if (current) {
       const match = trimmed.match(/^([A-Z][A-Z0-9])  - (.+)$/);
       if (match) {
         const [, tag, value] = match;
         if (tag === 'TI' || tag === 'T1') current.title = value;
-        else if (tag === 'AB') current.abstract = (current.abstract || '') + value + ' ';
+        else if (tag === 'AB' || tag === 'N2') current.abstract = (current.abstract || '') + value + ' ';
         else if (tag === 'PY') current.year = value.substring(0,4);
         else if (tag === 'DO') current.doi = value;
+        else if (tag === 'AN' || tag === 'ID') current.pmid = current.pmid || value;
         else if (tag === 'AU') current.authors = (current.authors ? current.authors + '; ' : '') + value;
+        else if (tag === 'JO' || tag === 'JF' || tag === 'J2') current.journal = current.journal || value;
       }
     }
   });
+  // Catch last record if file doesn't end with ER
+  if (current && current.title) records.push(current);
   return records;
 }
 
 function normalizeRecord(raw, source) {
   // OVID CSV exports use different column names
   const title = raw.title || raw['article title'] || raw['title of article'] || raw['ti'] || '';
-  const abstract = raw.abstract || raw['ab'] || raw['abstract text'] || '';
-  const year = raw.year || raw['publication year'] || raw['py'] || raw['year of publication'] || '';
+  const abstract = raw.abstract || raw[' abstract'] || raw['ab'] || raw['abstract text'] || raw['abstract '] || '';
+  const year = raw.year || raw['publication year'] || raw['py'] || raw['year of publication'] || raw['publication year'] || '';
   // OVID stores DOI in 'do' field or 'doi' or 'digital object identifier'
   const doi = raw.doi || raw['do'] || raw['digital object identifier'] || raw['doi/url'] || '';
   // OVID PMID stored as 'ui', 'accession number', or 'an'
@@ -1927,7 +2014,7 @@ async function predictBatch(stage) {
     await predictOne(rec.id, stage, { stopPropagation: () => {} });
     done++;
     if (btn) btn.textContent = `⏳ ${done}/${recs.length}`;
-    await new Promise(r => setTimeout(r, 300)); // rate limit
+    await new Promise(r => setTimeout(r, 2000)); // rate limit — 70b model needs more breathing room
   }
   if (btn) { btn.disabled = false; btn.textContent = `✦ Predict All (${stage})`; }
   toast(`Predicted ${done} records`);
@@ -1953,11 +2040,22 @@ function updateStats() {
   
   document.getElementById('tc-import').textContent = total;
   // Update per-source counts in import tab if elements exist
-  const ovidCount = records.filter(r => r.source === 'ovid').length;
-  const el = document.getElementById('ovid-status');
-  if (el && ovidCount > 0 && !el.textContent.startsWith('✓')) {
-    el.textContent = `✓ ${ovidCount} records loaded`;
-    el.classList.add('loaded');
+  ['ovid','aim','cabi','ajol'].forEach(src => {
+    const count = records.filter(r => r.source === src).length;
+    const el = document.getElementById(src + '-status');
+    if (el && count > 0 && !el.textContent.startsWith('✓')) {
+      el.textContent = `✓ ${count} records loaded`;
+      el.classList.add('loaded');
+    }
+  });
+  // Enable 30% sample button after dedup
+  const sampleBtn = document.getElementById('btn-export-sample');
+  const sampleInfo = document.getElementById('sample-info');
+  if (sampleBtn && dedupDone) {
+    sampleBtn.disabled = false;
+    const unique = records.filter(r => !r.isDuplicate).length;
+    const sample = Math.ceil(unique * 0.3);
+    if (sampleInfo) sampleInfo.textContent = `~${sample} articles (30% of ${unique} unique)`;
   }
   document.getElementById('tc-dedup').textContent = dups;
   document.getElementById('tc-title').textContent = screen;
@@ -1989,6 +2087,35 @@ function exportCSV(type) {
   toast('CSV exported');
 }
 
+// 30% RANDOM SAMPLE EXPORT
+function exportRandomSample() {
+  const unique = records.filter(r => !r.isDuplicate);
+  if (!unique.length) { toast('Run deduplication first'); return; }
+
+  // Shuffle using Fisher-Yates
+  const shuffled = [...unique];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const sample = shuffled.slice(0, Math.ceil(shuffled.length * 0.3));
+
+  // Build CSV
+  const headers = ['#','title','authors','year','journal','doi','pmid','source','abstract'];
+  const esc = v => '"' + String(v||'').replace(/"/g,'""') + '"';
+  const rows = sample.map((r, i) => [
+    i+1, r.title, r.authors, r.year, r.journal, r.doi, r.pmid, r.source, r.abstract
+  ].map(esc).join(','));
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `supervisor_sample_30pct_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast(`Exported ${sample.length} articles (30% of ${unique.length} unique records)`);
+}
+
 // UTILS
 function clearAll() {
   if (!confirm('Clear all data? This cannot be undone.')) return;
@@ -2010,11 +2137,15 @@ function clearAll() {
 
 function save() {
   try {
-    const payload = JSON.stringify({ records, dedupDone, savedAt: new Date().toISOString() });
+    // Strip abstracts from localStorage save to avoid quota — abstracts re-fetched on demand
+    const slim = records.map(r => {
+      const { abstract, ...rest } = r;
+      return rest;
+    });
+    const payload = JSON.stringify({ records: slim, dedupDone, savedAt: new Date().toISOString() });
     localStorage.setItem(STORAGE_KEY, payload);
     updateSaveStatus();
   } catch(e) {
-    // localStorage may be blocked (file:// in Safari) — silent fail, user should use Save Session button
     console.warn('localStorage unavailable:', e);
   }
 }
@@ -2080,11 +2211,11 @@ function restoreSession(e) {
         document.getElementById('scopus-status').textContent = `✓ ${scopus} records loaded`;
         document.getElementById('scopus-status').classList.add('loaded');
       }
-      const ovid2 = records.filter(r => r.source === 'ovid').length;
-      if (ovid2 > 0) {
-        document.getElementById('ovid-status').textContent = `✓ ${ovid2} records loaded`;
-        document.getElementById('ovid-status').classList.add('loaded');
-      }
+      ['ovid','aim','cabi','ajol'].forEach(src => {
+        const count = records.filter(r => r.source === src).length;
+        const el = document.getElementById(src + '-status');
+        if (el && count > 0) { el.textContent = `✓ ${count} records loaded`; el.classList.add('loaded'); }
+      });
       if (dedupDone) {
         document.getElementById('btn-to-title').disabled = false;
         const dups = records.filter(r => r.isDuplicate).length;
@@ -2138,11 +2269,11 @@ if (records.length > 0) {
     document.getElementById('scopus-status').textContent = `✓ ${scopus} records loaded`;
     document.getElementById('scopus-status').classList.add('loaded');
   }
-  const ovid = records.filter(r => r.source === 'ovid').length;
-  if (ovid > 0) {
-    document.getElementById('ovid-status').textContent = `✓ ${ovid} records loaded`;
-    document.getElementById('ovid-status').classList.add('loaded');
-  }
+  ['ovid','aim','cabi','ajol'].forEach(src => {
+    const count = records.filter(r => r.source === src).length;
+    const el = document.getElementById(src + '-status');
+    if (el && count > 0) { el.textContent = `✓ ${count} records loaded`; el.classList.add('loaded'); }
+  });
 }
 </script>
 </body>
