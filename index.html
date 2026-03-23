@@ -765,6 +765,9 @@
     <span>04 · Abstract</span>
     <span class="tab-count" id="tc-abstract">0</span>
   </div>
+  <div class="tab" onclick="switchTab('prisma')" id="tab-prisma">
+    <span>05 · PRISMA</span>
+  </div>
 </div>
 
 <div class="stats-bar">
@@ -979,6 +982,15 @@
       <button class="btn btn-ghost" onclick="exportCSV('final')">Export Final Results</button>
       <button class="btn btn-ghost" onclick="exportCSV('all')">Export All Decisions</button>
     </div>
+  </div>
+
+  <!-- PRISMA PANEL -->
+  <div class="panel" id="panel-prisma">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-family:var(--mono);font-size:12px;color:var(--text2);letter-spacing:0.04em">PRISMA 2020 FLOW DIAGRAM</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text3)" id="prisma-updated"></div>
+    </div>
+    <div id="prisma-diagram" style="width:100%;overflow-x:auto"></div>
   </div>
 </div>
 
@@ -1364,6 +1376,126 @@ function editDistance(a, b) {
   return matrix[a.length][b.length];
 }
 
+// ── PRISMA DIAGRAM ───────────────────────────────────────────────────────────
+function renderPrisma() {
+  const sources = ['pubmed','scopus','ovid','embase','aim','cabi','ajol'];
+  const sourceCounts = {};
+  sources.forEach(s => { sourceCounts[s] = records.filter(r => r.source === s).length; });
+
+  const total = records.length;
+  const dups = records.filter(r => r.isDuplicate).length;
+  const afterDedup = records.filter(r => !r.isDuplicate).length;
+  const titleExc = records.filter(r => !r.isDuplicate && r.titleDecision === 'exc').length;
+  const titleInc = records.filter(r => !r.isDuplicate && r.titleDecision === 'inc').length;
+  const titleMaybe = records.filter(r => !r.isDuplicate && r.titleDecision === 'maybe').length;
+  const toAbstract = titleInc + titleMaybe;
+  const titlePending = records.filter(r => !r.isDuplicate && !r.titleDecision).length;
+  const absExc = records.filter(r => !r.isDuplicate && r.abstractDecision === 'exc').length;
+  const absInc = records.filter(r => !r.isDuplicate && r.abstractDecision === 'inc').length;
+  const absMaybe = records.filter(r => !r.isDuplicate && r.abstractDecision === 'maybe').length;
+  const absPending = records.filter(r => !r.isDuplicate && (r.titleDecision === 'inc' || r.titleDecision === 'maybe') && !r.abstractDecision).length;
+
+  // Exclusion reasons breakdown
+  const excReasons = {};
+  EXCLUSION_REASONS.forEach(r => {
+    excReasons[r.code] = records.filter(rec => rec.abstractReason === r.code).length;
+  });
+
+  const el = document.getElementById('prisma-updated');
+  if (el) el.textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+  const sourceRows = Object.entries(sourceCounts)
+    .filter(([s,n]) => n > 0)
+    .map(([s,n]) => `<tr><td style="padding:3px 8px;color:var(--text2);font-size:12px">${s.toUpperCase()}</td><td style="padding:3px 8px;color:var(--text);font-family:var(--mono);font-size:12px;text-align:right">n = ${n.toLocaleString()}</td></tr>`)
+    .join('');
+
+  const excReasonRows = EXCLUSION_REASONS
+    .filter(r => excReasons[r.code] > 0)
+    .map(r => `<tr><td style="padding:2px 8px;color:var(--text2);font-size:11px">${r.code}: ${r.label}</td><td style="padding:2px 8px;color:var(--text);font-family:var(--mono);font-size:11px;text-align:right">n = ${excReasons[r.code]}</td></tr>`)
+    .join('');
+
+  const box = (title, lines, color, width) => `
+    <div style="background:var(--surface);border:2px solid ${color};border-radius:6px;padding:14px 16px;width:${width||220}px;min-height:80px">
+      <div style="font-family:var(--mono);font-size:10px;color:${color};letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px">${title}</div>
+      ${lines.map(l => `<div style="font-size:12px;color:var(--text);line-height:1.6">${l}</div>`).join('')}
+    </div>`;
+
+  const arrow = (label) => `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0">
+      <div style="width:2px;height:24px;background:var(--border2)"></div>
+      <div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${label||''}</div>
+      <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid var(--border2)"></div>
+    </div>`;
+
+  const sideArrow = () => `<div style="width:40px;height:2px;background:var(--border2);margin-top:40px;flex-shrink:0"></div>`;
+
+  document.getElementById('prisma-diagram').innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:0;padding:20px 0;min-width:600px">
+
+      <!-- Identification -->
+      <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.1em;align-self:flex-start;margin-bottom:8px;padding-left:4px">IDENTIFICATION</div>
+      <div style="display:flex;align-items:flex-start;gap:0">
+        <div style="display:flex;flex-direction:column;align-items:center">
+          ${box('Records identified from databases', [
+            `<table style="width:100%">${sourceRows}</table>`,
+            `<div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;font-family:var(--mono);font-size:12px">Total: ${total.toLocaleString()}</div>`
+          ], 'var(--accent)', 260)}
+        </div>
+        ${sideArrow()}
+        ${box('Removed before screening', [
+          `Duplicates removed: <strong style="font-family:var(--mono)">${dups.toLocaleString()}</strong>`,
+        ], 'var(--exc)', 220)}
+      </div>
+
+      ${arrow('')}
+
+      <!-- Title screening -->
+      <div style="font-family:var(--mono);font-size:10px;color:var(--maybe);letter-spacing:0.1em;align-self:flex-start;margin-bottom:8px;padding-left:4px">SCREENING — TITLES</div>
+      <div style="display:flex;align-items:flex-start;gap:0">
+        <div style="display:flex;flex-direction:column;align-items:center">
+          ${box('Title screening', [
+            `Screened: <strong style="font-family:var(--mono)">${afterDedup.toLocaleString()}</strong>`,
+            titlePending > 0 ? `<span style="color:var(--text3);font-size:11px">Pending: ${titlePending.toLocaleString()}</span>` : '',
+          ], 'var(--maybe)', 260)}
+        </div>
+        ${sideArrow()}
+        ${box('Excluded at title stage', [
+          `Excluded: <strong style="font-family:var(--mono)">${titleExc.toLocaleString()}</strong>`,
+          `Maybe (to abstract): <strong style="font-family:var(--mono)">${titleMaybe.toLocaleString()}</strong>`,
+        ], 'var(--exc)', 220)}
+      </div>
+
+      ${arrow('')}
+
+      <!-- Abstract screening -->
+      <div style="font-family:var(--mono);font-size:10px;color:var(--maybe);letter-spacing:0.1em;align-self:flex-start;margin-bottom:8px;padding-left:4px">SCREENING — ABSTRACTS</div>
+      <div style="display:flex;align-items:flex-start;gap:0">
+        <div style="display:flex;flex-direction:column;align-items:center">
+          ${box('Abstract screening', [
+            `Assessed: <strong style="font-family:var(--mono)">${toAbstract.toLocaleString()}</strong>`,
+            absPending > 0 ? `<span style="color:var(--text3);font-size:11px">Pending: ${absPending.toLocaleString()}</span>` : '',
+          ], 'var(--maybe)', 260)}
+        </div>
+        ${sideArrow()}
+        ${box('Excluded at abstract stage', [
+          `Excluded: <strong style="font-family:var(--mono)">${absExc.toLocaleString()}</strong>`,
+          excReasonRows ? `<table style="width:100%;margin-top:4px">${excReasonRows}</table>` : '',
+        ], 'var(--exc)', 220)}
+      </div>
+
+      ${arrow('')}
+
+      <!-- Included -->
+      <div style="font-family:var(--mono);font-size:10px;color:var(--inc);letter-spacing:0.1em;align-self:flex-start;margin-bottom:8px;padding-left:4px">INCLUDED</div>
+      ${box('Studies included in review', [
+        `<strong style="font-family:var(--mono);font-size:18px;color:var(--inc)">${absInc.toLocaleString()}</strong>`,
+        absMaybe > 0 ? `<span style="color:var(--maybe);font-size:11px">+ ${absMaybe} maybe (pending full-text)</span>` : '',
+      ], 'var(--inc)', 260)}
+
+    </div>`;
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
 // ── FLASHCARD TITLE SCREENING ────────────────────────────────────────────
 let fcRecords = [];      // current filtered set
 let fcIndex = 0;         // current card index
@@ -1653,6 +1785,7 @@ function switchTab(tab) {
   
   if (tab === 'title') fcInit();
   if (tab === 'abstract') renderList('abstract');
+  if (tab === 'prisma') renderPrisma();
   updateStats();
 }
 
@@ -1962,21 +2095,27 @@ async function predictOne(id, stage, e) {
 
 async function callPredictAPI(articleText) {
   if (!API_KEY) throw new Error('No API key — paste your Groq API key in the header field');
-  const prompt = `You are doing title screening for a systematic review on antimalarial drug resistance in West Africa. Default to INCLUDE or MAYBE. Only use EXCLUDE when you are certain.
+  const prompt = `Title screening for a systematic review on antimalarial DRUG RESISTANCE MOLECULAR MARKERS in West Africa.
 
-EXCLUDE only if the title makes it completely obvious that:
-- Geography is exclusively non-African (e.g. only mentions China, India, Thailand, Brazil, USA, Europe) — but NOT if Africa or any African country is mentioned
-- Topic is entirely unrelated to malaria (e.g. HIV, tuberculosis, cancer, diabetes, dengue)
-- It is explicitly a review/meta-analysis/editorial (e.g. "A systematic review", "Editorial:", "Commentary:")
-- Exclusively animal or in vitro (e.g. "in mice", "in vitro susceptibility", "cell line")
+STEP 1 — HARD EXCLUDE. Exclude immediately (verdict: exc) if ANY of these are explicit in the title:
+- Non-African geography with NO African country: Papua New Guinea, Malaysia, Thailand, India, China, Cambodia, Vietnam, Myanmar, Bangladesh, Indonesia, Philippines, Brazil, USA, Europe, Rhode Island, or any Asian/American/Pacific country — UNLESS an African country is also mentioned
+- Animal model: "in mice", "mouse", "murine", "monkey", "Aotus", "rodent", "rat", "rabbit", animal model
+- In vitro only: "in vitro", "in-vitro", "ex vivo", "cell line", "microtechnique", "culture"
+- Explicitly a review: "systematic review", "meta-analysis", "scoping review", "narrative review", "pooled analysis", "Cochrane"
+- Completely unrelated topic: HIV, tuberculosis, TB, cancer, dengue, COVID, diabetes, cholera, Ebola
 
-INCLUDE immediately if the title mentions ANY West African country: Benin, Burkina Faso, Cabo Verde, Cameroon, Chad, Cote d Ivoire, Ivory Coast, Gambia, Ghana, Guinea, Guinea-Bissau, Liberia, Mali, Mauritania, Niger, Nigeria, Senegal, Sierra Leone, Togo. Also INCLUDE if the title mentions Africa broadly (sub-Saharan Africa, West Africa, Africa, tropical Africa, ECOWAS) — these may include West African data.
+STEP 2 — HARD INCLUDE. Include immediately (verdict: inc) if the title mentions:
+- ANY West African country: Benin, Burkina Faso, Cabo Verde, Cameroon, Chad, Cote d Ivoire, Ivory Coast, Gambia, Ghana, Guinea, Guinea-Bissau, Liberia, Mali, Mauritania, Niger, Nigeria, Senegal, Sierra Leone, Togo
+- AND is about malaria/Plasmodium
 
-MAYBE for anything unclear, ambiguous, or where geography is not mentioned.
+STEP 3 — MAYBE. Use maybe for:
+- Africa broadly mentioned (sub-Saharan Africa, West Africa, tropical Africa) without specific non-West-African country
+- Malaria resistance topic but no geography in title
+- Unclear whether primary data or markers involved
 
-Never exclude because a country name is missing from the title. Never exclude because resistance markers are not named. If in doubt: maybe.
+STEP 4 — DEFAULT. If none of the above apply and the paper is about malaria: MAYBE.
 
-Respond ONLY with JSON (no extra text): {"verdict":"inc","score":0.9,"reason":"one sentence"}
+Respond ONLY with JSON: {"verdict":"inc","score":0.9,"reason":"one sentence citing the rule applied"}
 verdict = inc / exc / maybe
 
 Title: ${articleText.substring(0, 400)}`;
@@ -1988,7 +2127,7 @@ Title: ${articleText.substring(0, 400)}`;
       'Authorization': `Bearer ${API_KEY}`
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
+      model: 'llama-3.1-8b-instant',
       max_tokens: 100,
       temperature: 0.0,
       messages: [{ role: 'user', content: prompt }]
@@ -1998,9 +2137,18 @@ Title: ${articleText.substring(0, 400)}`;
   if (!response.ok) throw new Error('API error ' + response.status);
   const data = await response.json();
   const raw = data.choices?.[0]?.message?.content || '';
+  // Try strict JSON match first
   const jsonMatch = raw.match(/\{[\s\S]*?\}/);
-  if (!jsonMatch) throw new Error('No JSON in response');
-  return JSON.parse(jsonMatch[0]);
+  if (jsonMatch) {
+    try { return JSON.parse(jsonMatch[0]); } catch(e) {}
+  }
+  // Fallback: extract verdict from text
+  const lc = raw.toLowerCase();
+  const verdict = lc.includes('"exc"') || lc.includes('exclude') || lc.includes('verdict: exc') ? 'exc'
+                : lc.includes('"inc"') || lc.includes('include') || lc.includes('verdict: inc') ? 'inc'
+                : 'maybe';
+  const score = verdict === 'exc' ? 0.1 : verdict === 'inc' ? 0.9 : 0.5;
+  return { verdict, score, reason: raw.substring(0, 120).replace(/["{}/]/g, '') };
 }
 
 // Predict all visible pending records
@@ -2014,7 +2162,7 @@ async function predictBatch(stage) {
     await predictOne(rec.id, stage, { stopPropagation: () => {} });
     done++;
     if (btn) btn.textContent = `⏳ ${done}/${recs.length}`;
-    await new Promise(r => setTimeout(r, 2000)); // rate limit — 70b model needs more breathing room
+    await new Promise(r => setTimeout(r, 500)); // rate limit — 8b model has high limits
   }
   if (btn) { btn.disabled = false; btn.textContent = `✦ Predict All (${stage})`; }
   toast(`Predicted ${done} records`);
