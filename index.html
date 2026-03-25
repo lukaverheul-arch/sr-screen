@@ -735,7 +735,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v8</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v9</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -2372,35 +2372,22 @@ function clearAll() {
 }
 
 function save() {
-  try {
-    // Strip abstracts from localStorage save to avoid quota — abstracts re-fetched on demand
-    const slim = records.map(r => {
-      const { abstract, ...rest } = r;
-      return rest;
-    });
-    const payload = JSON.stringify({ records: slim, dedupDone, savedAt: new Date().toISOString() });
-    localStorage.setItem(STORAGE_KEY, payload);
-    updateSaveStatus();
-  } catch(e) {
-    console.warn('localStorage unavailable:', e);
-  }
+  // localStorage disabled — dataset too large for 5MB quota
+  // Use 💾 Save Session button to export full JSON backup
+  updateSaveStatus();
 }
 
 function load() {
+  // localStorage disabled for records — use 📂 Restore Session to reload data
+  // Still load API key from localStorage (tiny, always fits)
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      const parsed = JSON.parse(data);
-      records = parsed.records || [];
-      dedupDone = parsed.dedupDone || false;
+    const savedKey = localStorage.getItem('sr_api_key');
+    if (savedKey) {
+      API_KEY = savedKey;
+      const inp = document.getElementById('api-key-input');
+      if (inp) inp.value = savedKey;
     }
   } catch(e) {}
-  const savedKey = localStorage.getItem('sr_api_key');
-  if (savedKey) {
-    API_KEY = savedKey;
-    const inp = document.getElementById('api-key-input');
-    if (inp) inp.value = savedKey;
-  }
 }
 
 // Save session as downloadable JSON file (works even when localStorage is blocked)
@@ -2480,7 +2467,7 @@ function updateSaveStatus() {
   }
   const decided = records.filter(r => r.titleDecision || r.abstractDecision).length;
   dot.style.background = 'var(--inc)';
-  label.textContent = `${records.length} records · ${decided} decisions`;
+  label.textContent = `${records.length} records · ${decided} decisions · 💾 save session to preserve`;
 }
 
 function toast(msg) {
