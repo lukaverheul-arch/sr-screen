@@ -735,7 +735,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v8</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -2199,7 +2199,6 @@ Title: ${title}`;
                 : 'maybe';
   const score = verdict === 'exc' ? 0.1 : verdict === 'inc' ? 0.9 : 0.5;
   return { verdict, score, reason: raw.substring(0, 120).replace(/["{}/]/g, '') };
-}
 }
 
 // Predict all visible pending records
