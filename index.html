@@ -1903,7 +1903,7 @@ function buildRecordHTML(rec, i, stage) {
 }
 
 function buildPredictHTML(pred) {
-  const pct = Math.round(pred.score * 100);
+  const pct = isNaN(pred.score) ? 50 : Math.round(Math.max(0, Math.min(1, Number(pred.score))) * 100);
   const color = pred.verdict === 'inc' ? 'var(--inc)' : pred.verdict === 'exc' ? 'var(--exc)' : 'var(--maybe)';
   const label = pred.verdict === 'inc' ? 'LIKELY INCLUDE' : pred.verdict === 'exc' ? 'LIKELY EXCLUDE' : 'UNCERTAIN';
   return `<div class="predict-section">
@@ -2096,30 +2096,69 @@ async function predictOne(id, stage, e) {
 
 async function callPredictAPI(articleText) {
   if (!API_KEY) throw new Error('No API key — paste your Groq API key in the header field');
-  const prompt = `You are screening article titles for a systematic review. Answer ONLY with valid JSON.
 
-TOPIC: Antimalarial DRUG RESISTANCE MOLECULAR MARKERS in West Africa.
+  // Global lock — only one request in flight at a time
+  while (window._apiLock) {
+    await sleep(200);
+  }
+  window._apiLock = true;
 
-Rules (apply in order):
+  try {
+    return await _doApiCall(articleText);
+  } finally {
+    window._apiLock = false;
+  }
+}
 
-EXCLUDE (exc) if ANY of these appear in the title:
-- Countries outside Africa with no African country also present: Papua New Guinea, Malaysia, Thailand, India, China, Cambodia, Vietnam, Myanmar, Indonesia, Philippines, Brazil, USA, Rhode Island, Europe, Australia
-- Animal study: monkey, mice, mouse, murine, Aotus, rodent, rat, rabbit
-- In vitro: "in vitro", "in-vitro", "ex vivo", "cell line", "microtechnique"  
-- Review/meta-analysis: "systematic review", "meta-analysis", "scoping review", "pooled analysis", "Cochrane review"
-- Unrelated disease: HIV, tuberculosis, cancer, dengue, COVID, Ebola, diabetes
+async function _doApiCall(articleText) {
+  const title = articleText.substring(0, 250);
+  // Note: pre-screen logic above may return early
 
-INCLUDE (inc) if ALL of these are true:
-- Title mentions a West African country (Benin, Burkina Faso, Cabo Verde, Cameroon, Chad, Cote d Ivoire, Ivory Coast, Gambia, Ghana, Guinea, Guinea-Bissau, Liberia, Mali, Mauritania, Niger, Nigeria, Senegal, Sierra Leone, Togo)
-- AND title relates to malaria or Plasmodium
-- AND title relates to drug resistance, molecular markers, mutations, genes, genotypes, alleles, or treatment efficacy
+  // Pre-screen with JS before calling API to save tokens and avoid wrong calls
+  const tl = title.toLowerCase();
+  const westAfrica = ['nigeria','ghana','senegal','mali','burkina faso','benin','togo','niger',
+    'cameroon','guinea','liberia','sierra leone','gambia','mauritania','cabo verde','cape verde',
+    'guinea-bissau','ivory coast',"cote d'ivoire",'cote divoire','equatorial guinea','chad'];
+  const hardExclude = ['papua new guinea','malaysia','thailand','cambodia','vietnam','myanmar',
+    'in vitro','in-vitro','ex vivo','cell line','aotus','systematic review','meta-analysis',
+    'scoping review','pooled analysis','hiv','tuberculosis',' cancer','dengue','ebola',
+    'insecticide resistance','case report','case series','monoclonal antibody','vaccine'];
+  // Only terms that strongly imply molecular resistance marker data
+  // Drug names alone are NOT enough — paper must mention markers/mutations/genotypes
+  const resistanceTerms = ['pfcrt','pfmdr','pfkelch','kelch13','pfdhfr','pfdhps',
+    'plasmepsin','mutation','allele','haplotype','genotype','polymorphism','snp',
+    'molecular marker','resistance marker','drug resistance marker',
+    'resistance gene','resistance mutation','molecular surveillance',
+    'k13','k76','n86','c580y','a437g','n51i','c59r','s108n'];
 
-MAYBE (maybe) for everything else: unclear geography, malaria resistance without West African country, Africa broadly mentioned.
+  const hasWestAfrica = westAfrica.some(c => tl.includes(c));
+  const hasHardExclude = hardExclude.some(t => tl.includes(t));
+  const hasResistance = resistanceTerms.some(t => tl.includes(t));
 
-Respond ONLY with this exact JSON format, nothing else:
-{"verdict":"inc","score":0.9,"reason":"brief reason"}
+  // Hard excludes — no API call needed
+  if (hasHardExclude && !hasWestAfrica) {
+    return { verdict: 'exc', score: 0.05, reason: 'Hard exclude: ' + hardExclude.find(t => tl.includes(t)) };
+  }
+  // Clear includes — no API call needed
+  if (hasWestAfrica && hasResistance) {
+    return { verdict: 'inc', score: 0.92, reason: 'West African country + molecular resistance term in title' };
+  }
+  // West Africa but no resistance term — maybe
+  if (hasWestAfrica && !hasResistance) {
+    return { verdict: 'maybe', score: 0.5, reason: 'West African country but no molecular marker term — needs abstract review' };
+  }
 
-Title: ${articleText.substring(0, 400)}`;
+  // Ambiguous — call API for the rest
+  const prompt = `Classify for a systematic review on antimalarial drug resistance molecular markers in West Africa. Reply ONLY with JSON.
+
+EXCLUDE if: non-African geography only, animal study (mice/monkey/Aotus), in vitro, review/meta-analysis, unrelated disease (HIV/TB/cancer/dengue), case report, health-seeking/behaviour study, diagnostic accuracy only.
+INCLUDE if: molecular resistance markers (pfcrt/pfmdr1/kelch13/pfdhfr/pfdhps/mutations/alleles/polymorphisms) AND malaria AND Africa.
+MAYBE if: malaria in Africa but unclear whether resistance data present.
+
+Reply with ONLY this JSON (real values, not placeholders):
+{"verdict":"maybe","score":0.5,"reason":"malaria in Africa, unclear if resistance data"}
+
+Title: ${title}`;
 
   // Retry up to 4 times on 429
   let response;
@@ -2161,59 +2200,59 @@ Title: ${articleText.substring(0, 400)}`;
   const score = verdict === 'exc' ? 0.1 : verdict === 'inc' ? 0.9 : 0.5;
   return { verdict, score, reason: raw.substring(0, 120).replace(/["{}/]/g, '') };
 }
+}
 
 // Predict all visible pending records
 async function predictBatch(stage) {
   const btn = document.getElementById('btn-predict-batch-' + stage);
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Starting...'; }
 
-  // Stop flag — pressing button again cancels
+  // Toggle stop if already running
+  if (window._batchRunning) {
+    window._batchRunning = false;
+    toast('Batch stopping...');
+    return;
+  }
+
   window._batchRunning = true;
+  if (btn) { btn.disabled = false; btn.textContent = '⏳ 0/? · click to stop'; }
 
   const recs = records.filter(r => !r.isDuplicate && !r.prediction);
   const total = recs.length;
   let done = 0;
   let failed = 0;
+  let delay = 5000; // start conservative at 5s
 
   for (let i = 0; i < recs.length; i++) {
     if (!window._batchRunning) break;
-
     const rec = recs[i];
-    if (rec.prediction) continue; // already done
+    if (rec.prediction) continue;
 
-    if (btn) btn.textContent = `⏳ ${done}/${total} — press to stop`;
+    if (btn) btn.textContent = `⏳ ${done}/${total} · ${delay/1000}s · click to stop`;
 
-    // Single request, no inner retry loop
     try {
       const result = await callPredictAPI(rec.title || '');
       rec.prediction = result;
       done++;
       updateSaveStatus();
+      if (done % 100 === 0) toast(`${done}/${total} predicted — 💾 Save Session!`);
     } catch(err) {
       if (err.message.includes('429')) {
-        // Hit rate limit — wait 10s then retry this same record once
-        if (btn) btn.textContent = `⏳ ${done}/${total} — rate limit, pausing 10s...`;
-        await sleep(10000);
-        try {
-          const result = await callPredictAPI(rec.title || '');
-          rec.prediction = result;
-          done++;
-          updateSaveStatus();
-        } catch(e2) {
-          failed++;
-        }
+        delay = Math.min(delay + 3000, 20000); // ramp up delay, cap at 20s
+        if (btn) btn.textContent = `⏳ ${done}/${total} · 429! slowing to ${delay/1000}s...`;
+        await sleep(delay * 2); // double wait on 429
+        i--; // retry same record
+        continue;
       } else {
         failed++;
       }
     }
 
-    // Always wait 2.5s before next request
-    await sleep(2500);
+    await sleep(delay);
   }
 
   window._batchRunning = false;
   if (btn) { btn.disabled = false; btn.textContent = '✦ Predict All'; }
-  toast(`Done: ${done} predicted${failed > 0 ? ', ' + failed + ' failed' : ''}`);
+  toast(`Done: ${done} predicted${failed > 0 ? ', ' + failed + ' failed' : ''} — 💾 Save Session!`);
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
