@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>SR Screening — Antimalarial Resistance West Africa</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -593,6 +593,18 @@
     border: 2px solid transparent;
     transition: all 0.12s;
     user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 52px;
+  }
+  @media (max-width: 768px) {
+    .flashcard { padding: 24px 20px; min-height: 200px; }
+    .fc-title { font-size: 17px; }
+    .flashcard-sidebar { display: none; }
+    .flashcard-layout { min-height: unset; }
+    .key-hint { padding: 16px 10px; font-size: 12px; }
+    .fc-abstract { max-height: 80px; }
+    .app-header { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+    #api-key-input { width: 140px; }
   }
   .key-exc { background: var(--exc-bg); color: var(--exc); border-color: #4a1a18; }
   .key-maybe { background: var(--maybe-bg); color: var(--maybe); border-color: #4a3008; }
@@ -735,7 +747,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v12</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v13</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -1777,6 +1789,71 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'ArrowLeft') { fcIndex = Math.max(fcIndex-1, 0); fcRenderCard(); fcRenderSidebar(); }
 });
 
+// Touch swipe support for flashcard on mobile
+(function() {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+
+  document.addEventListener('touchstart', function(e) {
+    if (activeTab !== 'title' || fcListMode) return;
+    const card = document.getElementById('fc-card');
+    if (!card || !card.contains(e.target)) return;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function(e) {
+    if (activeTab !== 'title' || fcListMode) return;
+    const card = document.getElementById('fc-card');
+    if (!card || !card.contains(e.target)) return;
+    const dx = e.touches[0].clientX - touchStartX;
+    const dy = e.touches[0].clientY - touchStartY;
+    // Tilt card while dragging
+    const tilt = Math.max(-15, Math.min(15, dx / 15));
+    const lift = Math.max(-80, Math.min(0, dy / 3));
+    card.style.transform = `translateX(${dx * 0.3}px) translateY(${lift * 0.3}px) rotate(${tilt}deg)`;
+    // Color hint
+    if (Math.abs(dx) > Math.abs(dy)) {
+      card.style.borderColor = dx > 40 ? 'var(--inc)' : dx < -40 ? 'var(--exc)' : '';
+      card.style.boxShadow = dx > 40 ? '0 0 0 2px var(--inc)' : dx < -40 ? '0 0 0 2px var(--exc)' : '';
+    } else if (dy < -40) {
+      card.style.borderColor = 'var(--maybe)';
+      card.style.boxShadow = '0 0 0 2px var(--maybe)';
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', function(e) {
+    if (activeTab !== 'title' || fcListMode) return;
+    const card = document.getElementById('fc-card');
+    if (!card) return;
+
+    // Reset card transform
+    card.style.transform = '';
+    card.style.borderColor = '';
+    card.style.boxShadow = '';
+
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    const dt = Date.now() - touchStartTime;
+
+    // Only register as swipe if fast enough and far enough
+    const minDist = 60;
+    const maxTime = 500;
+    if (dt > maxTime) return;
+
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > minDist) {
+      if (dx > 0) fcDecide('inc');   // swipe right = include
+      else fcDecide('exc');           // swipe left = exclude
+    } else if (dy < -minDist) {
+      fcDecide('maybe');              // swipe up = maybe
+    } else if (dy > minDist) {
+      fcUndo();                        // swipe down = undo
+    }
+  }, { passive: true });
+})();
+
 // TABS
 function switchTab(tab) {
   activeTab = tab;
@@ -2617,13 +2694,21 @@ function restoreSession(e) {
           `${dups} duplicates flagged, ${records.filter(r=>!r.isDuplicate).length} unique records for screening`;
       }
 
-      toast(`Session restored: ${records.length} records, saved ${parsed.savedAt ? parsed.savedAt.slice(0,10) : 'unknown date'}`);
+      // Count predictions
+      const predCount = records.filter(r => r.prediction).length;
+      const decided = records.filter(r => r.titleDecision).length;
+
+      toast(`Session restored: ${records.length} records · ${predCount} predictions · ${decided} decisions`);
+
+      // Re-initialize views
+      if (dedupDone) {
+        switchTab('title');
+      }
     } catch(err) {
       toast('Error restoring session: ' + err.message);
     }
   };
   reader.readAsText(file);
-  // Reset input so same file can be reloaded
   e.target.value = '';
 }
 
