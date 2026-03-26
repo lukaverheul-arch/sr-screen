@@ -747,7 +747,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v18</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v19</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -2221,6 +2221,10 @@ function preScreen(articleText) {
     { term: 'covid',               reason: 'E2: COVID (wrong pathogen)' },
     // Insecticide only
     { term: 'insecticide resistance', reason: 'E3: insecticide resistance (not drug resistance)' },
+    { term: 'drug policy',             reason: 'E4: drug policy/adherence study (no molecular data)' },
+    { term: 'adherence to antimalarial', reason: 'E4: adherence study (no molecular data)' },
+    { term: 'health-seeking',          reason: 'E4: health-seeking behaviour study' },
+    { term: 'deployed to',             reason: 'E4: military deployment study' },
     // Wrong geography — non-African
     { term: 'papua new guinea',    reason: 'E1: Papua New Guinea (not West Africa)' },
     { term: 'malaysia',            reason: 'E1: Malaysia (not Africa)' },
@@ -2256,9 +2260,20 @@ function preScreen(articleText) {
 
   // HARD INCLUDES — West African country + explicit gene name (very high confidence)
   const geneNames = [
-    'pfcrt','pfmdr1','pfmdr','pfkelch13','pfkelch','kelch13','k13',
-    'pfdhfr','pfdhps','plasmepsin','pfpm2','pfpm3',
-    'pfatpase','pfmrp','pfk13'
+    // Exact gene names
+    'pfcrt','pfmdr1','pfmdr','pfkelch13','pfkelch','kelch13','kelch 13','k13',
+    'pfdhfr','pfdhps','plasmepsin','pfpm2','pfpm3','pfatpase','pfmrp','pfk13',
+    // Explicit resistance phrases strong enough to auto-include with West African country
+    'drug resistance gene','drug-resistant gene','drug resistance marker',
+    'drug resistance mutation','drug resistance profile','drug resistance profil',
+    'resistance gene','resistance marker','resistance mutation','resistance loci',
+    'molecular marker','molecular map of','molecular surveillance',
+    'chloroquine resistance','artemisinin resistance','sulfadoxine resistance',
+    'piperaquine resistance','lumefantrine resistance','amodiaquine resistance',
+    'drug-resistant clone','drug-resistant parasit','antimalarial resistance',
+    'resistance profil','resistance genotyp','resistance haplotyp',
+    'resistance allel','resistance polymorphism',
+    'surveillance of malaria drug resistance','malaria drug resistance'
   ];
 
   const hasWestAfrica = westAfrica.some(c => tl.includes(c));
