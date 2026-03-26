@@ -747,7 +747,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v23</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v24</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -906,10 +906,10 @@
         📋 Export 30% Sample for Supervisor
       </button>
       <button class="btn btn-ghost" id="btn-prescreen-all" onclick="runPreScreenAll()" disabled style="font-size:11px">
-        ⚡ Pre-screen All (instant, no API)
+        ⚡ Pre-screen All (Ctrl+Shift+P)
       </button>
       <button class="btn btn-ghost" id="btn-apply-decisions" onclick="applyPreScreenDecisions()" disabled style="font-size:11px">
-        ✓ Apply Inc/Exc Decisions
+        ✓ Apply Decisions (Ctrl+Shift+A)
       </button>
       <span id="prescreen-info" style="font-family:var(--mono);font-size:11px;color:var(--text3)"></span>
       <span id="sample-info" style="font-family:var(--mono);font-size:11px;color:var(--text3)"></span>
@@ -1832,6 +1832,9 @@ function renderTitleList() {
 
 // Keyboard shortcuts for flashcard
 document.addEventListener('keydown', function(e) {
+  // Global shortcuts — work from any tab
+  if (e.ctrlKey && e.shiftKey && e.key === 'P') { e.preventDefault(); runPreScreenAll(); return; }
+  if (e.ctrlKey && e.shiftKey && e.key === 'A') { e.preventDefault(); applyPreScreenDecisions(); return; }
   if (activeTab !== 'title' || fcListMode) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.key === 'a' || e.key === 'A') fcDecide('exc');
@@ -2872,6 +2875,12 @@ function restoreSession(e) {
 
       toast(`Session restored: ${records.length} records · ${predCount} predictions · ${decided} decisions`);
 
+      // Enable prescreen buttons
+      const psBtn = document.getElementById('btn-prescreen-all');
+      if (psBtn) psBtn.disabled = false;
+      const apBtn = document.getElementById('btn-apply-decisions');
+      if (apBtn) apBtn.disabled = false;
+
       // Re-initialize views
       if (dedupDone) {
         switchTab('title');
@@ -2909,6 +2918,14 @@ function toast(msg) {
 load();
 updateStats();
 updateSaveStatus();
+
+// Always enable prescreen button — doesn't need dedup
+setTimeout(() => {
+  const btn = document.getElementById('btn-prescreen-all');
+  if (btn) btn.disabled = false;
+  const applyBtn = document.getElementById('btn-apply-decisions');
+  if (applyBtn) applyBtn.disabled = false;
+}, 500);
 if (records.length > 0) {
   const pubmed = records.filter(r => r.source === 'pubmed').length;
   const scopus = records.filter(r => r.source === 'scopus').length;
