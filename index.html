@@ -524,8 +524,8 @@
     background: var(--surface);
     border: 1px solid var(--border2);
     border-radius: 10px;
-    padding: 40px 48px;
-    min-height: 260px;
+    padding: 56px 64px;
+    min-height: 380px;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -543,7 +543,7 @@
     letter-spacing: 0.06em;
   }
   .fc-title {
-    font-size: 22px;
+    font-size: 32px;
     font-weight: 500;
     color: var(--text);
     line-height: 1.45;
@@ -747,7 +747,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v20</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v21</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -939,9 +939,11 @@
             <div class="key-hint key-inc" onclick="fcDecide('inc')"><span class="key-badge">D</span> Include</div>
           </div>
           <div class="flashcard-actions">
-            <button class="btn btn-ghost" style="font-size:11px" onclick="fcUndo()">↩ Undo</button>
+            <button class="btn btn-ghost" style="font-size:11px" onclick="fcUndo()">↩ Undo <span style="opacity:.5;font-size:9px">Z</span></button>
+            <button class="btn btn-ghost" style="font-size:11px" onclick="fcJumpNextUndecided()">⏭ Next Undecided <span style="opacity:.5;font-size:9px">S</span></button>
+            <button class="btn btn-ghost" style="font-size:11px" onclick="fcTogglePendingOnly()">⊙ Pending Only <span style="opacity:.5;font-size:9px">P</span></button>
             <button class="btn btn-ghost" style="font-size:11px" id="fc-ai-btn" onclick="fcPredict()">✦ AI Predict</button>
-            <button class="btn btn-ghost" style="font-size:11px" id="fc-abs-btn" onclick="fcFetchAbstract()">⬇ Fetch Abstract</button>
+            <button class="btn btn-ghost" style="font-size:11px" id="fc-abs-btn" onclick="fcFetchAbstract()">⬇ Abstract</button>
             <button class="btn btn-ghost" style="font-size:11px" onclick="toggleListView()">☰ List View</button>
             <button class="btn btn-primary" style="font-size:11px" onclick="switchTab('abstract')">→ Abstract</button>
           </div>
@@ -959,6 +961,12 @@
           </div>
           <div class="sidebar-list" id="fc-sidebar-list"></div>
           <div class="sidebar-footer">
+            <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap">
+              <button class="brush-btn brush-inc" style="font-size:9px;padding:4px 8px" onclick="setBrush('inc')">🖌 Inc</button>
+              <button class="brush-btn brush-exc" style="font-size:9px;padding:4px 8px" onclick="setBrush('exc')">🖌 Exc</button>
+              <button class="brush-btn brush-maybe" style="font-size:9px;padding:4px 8px" onclick="setBrush('maybe')">🖌 Maybe</button>
+              <button class="brush-btn brush-clear" style="font-size:9px;padding:4px 8px" onclick="setBrush(null)">✕</button>
+            </div>
             <button class="btn btn-ghost" style="font-size:10px;width:100%" onclick="toggleListView()">☰ Full List View</button>
           </div>
         </div>
@@ -1528,7 +1536,45 @@ let fcRecords = [];      // current filtered set
 let fcIndex = 0;         // current card index
 let fcListMode = false;  // list view toggle
 let fcListPage = 0;
+let fcPendingOnly = false; // P key toggle
 
+
+function fcJumpNextUndecided() {
+  // Find next undecided record from current position
+  const all = records.filter(r => !r.isDuplicate);
+  let start = fcIndex + 1;
+  for (let i = start; i < all.length; i++) {
+    if (!all[i].titleDecision) {
+      fcIndex = fcRecords.indexOf(all[i]);
+      if (fcIndex === -1) {
+        // Not in current filter — switch to all
+        filters.title = 'all';
+        fcRecords = getTitleRecords();
+        fcIndex = fcRecords.indexOf(all[i]);
+      }
+      fcRenderCard();
+      fcRenderSidebar();
+      return;
+    }
+  }
+  toast('No more undecided records');
+}
+
+function fcTogglePendingOnly() {
+  fcPendingOnly = !fcPendingOnly;
+  if (fcPendingOnly) {
+    filters.title = 'pending';
+    toast('P: showing pending only');
+  } else {
+    filters.title = 'all';
+    toast('P: showing all');
+  }
+  fcRecords = getTitleRecords();
+  const firstPending = fcRecords.findIndex(r => !r.titleDecision);
+  fcIndex = firstPending >= 0 ? firstPending : 0;
+  fcRenderCard();
+  fcRenderSidebar();
+}
 function fcInit() {
   fcRecords = getTitleRecords();
   // Find first undecided
@@ -1792,6 +1838,8 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'd' || e.key === 'D') fcDecide('inc');
   if (e.key === 'w' || e.key === 'W') fcDecide('maybe');
   if (e.key === 'z' || e.key === 'Z') fcUndo();
+  if (e.key === 's' || e.key === 'S') fcJumpNextUndecided();
+  if (e.key === 'p' || e.key === 'P') fcTogglePendingOnly();
   if (e.key === 'ArrowRight') { fcIndex = Math.min(fcIndex+1, fcRecords.length-1); fcRenderCard(); fcRenderSidebar(); }
   if (e.key === 'ArrowLeft') { fcIndex = Math.max(fcIndex-1, 0); fcRenderCard(); fcRenderSidebar(); }
 });
@@ -1994,15 +2042,24 @@ function buildRecordHTML(rec, i, stage) {
   </div>`;
 }
 
+function isPreScreened(pred) {
+  if (!pred || !pred.reason) return false;
+  const r = pred.reason;
+  return r.startsWith('I2+I3:') || r.startsWith('Hard exclude:') || 
+         r.startsWith('E1:') || r.startsWith('E2:') || r.startsWith('E3:') || r.startsWith('E4:') ||
+         r.startsWith('West African country') || r.startsWith('No definitive');
+}
+
 function buildPredictHTML(pred) {
   const pct = isNaN(pred.score) ? 50 : Math.round(Math.max(0, Math.min(1, Number(pred.score))) * 100);
   const color = pred.verdict === 'inc' ? 'var(--inc)' : pred.verdict === 'exc' ? 'var(--exc)' : 'var(--maybe)';
   const label = pred.verdict === 'inc' ? 'LIKELY INCLUDE' : pred.verdict === 'exc' ? 'LIKELY EXCLUDE' : 'UNCERTAIN';
+  const psTag = isPreScreened(pred) ? '<span style="font-family:var(--mono);font-size:9px;padding:2px 6px;background:var(--surface2);border:1px solid var(--border2);border-radius:2px;color:var(--text3);margin-left:6px">PS</span>' : '';
   return `<div class="predict-section">
     <div class="predict-bar">
-      <span class="predict-label">AI</span>
+      <span class="predict-label">AI${isPreScreened(pred) ? '/PS' : ''}</span>
       <div class="predict-meter"><div class="predict-fill" style="width:${pct}%;background:${color}"></div></div>
-      <span class="predict-score" style="color:${color}">${label} · ${pct}%</span>
+      <span class="predict-score" style="color:${color}">${label} · ${pct}%${psTag}</span>
     </div>
     ${pred.reason ? `<div class="predict-reason">${pred.reason}</div>` : ''}
   </div>`;
@@ -2036,7 +2093,8 @@ function setDecision(id, stage, dec, e) {
       const year = rec.year ? `<span class="meta-tag meta-year">${rec.year}</span>` : '';
       const pred = rec.prediction ? `<span class="predict-badge predict-badge-${rec.prediction.verdict}">${Math.round(rec.prediction.score*100)}%</span>` : '';
       const src = `<span class="meta-tag meta-src">${rec.source.toUpperCase()}</span>`;
-      const badge = dec ? `<span class="decision-badge badge-${dec}">${dec.toUpperCase()}</span>` : '';
+      const ps = rec.prediction && isPreScreened(rec.prediction) ? '<span style="font-family:var(--mono);font-size:9px;padding:1px 5px;background:var(--surface2);border:1px solid var(--border2);border-radius:2px;color:var(--text3);margin-left:3px">PS</span>' : '';
+      const badge = dec ? `<span class="decision-badge badge-${dec}">${dec.toUpperCase()}${ps}</span>` : '';
       const reason = rec[stage+'Reason'] ? `<span class="meta-tag" style="background:var(--exc-bg);color:var(--exc);border:1px solid #4a1a18">${rec[stage+'Reason']}</span>` : '';
       metaEl.innerHTML = pred + year + src + badge + reason;
     }
