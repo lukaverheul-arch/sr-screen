@@ -747,7 +747,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v16</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v18</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -905,6 +905,10 @@
       <button class="btn btn-ghost" id="btn-export-sample" onclick="exportRandomSample()" disabled style="font-size:11px">
         📋 Export 30% Sample for Supervisor
       </button>
+      <button class="btn btn-ghost" id="btn-prescreen-all" onclick="runPreScreenAll()" disabled style="font-size:11px">
+        ⚡ Pre-screen All (instant, no API)
+      </button>
+      <span id="prescreen-info" style="font-family:var(--mono);font-size:11px;color:var(--text3)"></span>
       <span id="sample-info" style="font-family:var(--mono);font-size:11px;color:var(--text3)"></span>
     </div>
   </div>
@@ -2186,74 +2190,102 @@ function preScreen(articleText) {
     'cameroon','guinea','liberia','sierra leone','gambia','mauritania','cabo verde','cape verde',
     'guinea-bissau','ivory coast',"cote d'ivoire",'cote divoire','equatorial guinea','chad'];
 
-  // Hard excludes — these always exclude regardless of other terms
-  const hardExcludeTerms = [
-    'papua new guinea','malaysia','thailand','cambodia','vietnam','myanmar',
-    'in vitro','in-vitro','ex vivo','ex-vivo','cell line','microtechnique',
-    'aotus','systematic review','meta-analysis','scoping review','pooled analysis',
-    'hiv','tuberculosis',' cancer','dengue','ebola',
-    'insecticide resistance','case report','case series',
-    'monoclonal antibody','vaccine',
-    // Non-West-African countries
-    'rwanda','ethiopia','tanzania','kenya','uganda','south africa','madagascar',
-    'mozambique','zimbabwe','zambia','malawi','botswana','namibia',
-    'india','china','thailand','indonesia','philippines','bangladesh',
-    'brazil','colombia','peru','usa','united states','europe','australia'
+  // HARD EXCLUDES — always exclude, no exceptions
+  const hardExcludes = [
+    // In vitro / animal
+    { term: 'in vitro',            reason: 'E3: in vitro study' },
+    { term: 'in-vitro',            reason: 'E3: in vitro study' },
+    { term: 'ex vivo',             reason: 'E3: ex vivo study' },
+    { term: 'ex-vivo',             reason: 'E3: ex vivo study' },
+    { term: 'cell line',           reason: 'E3: cell line study' },
+    { term: 'microtechnique',      reason: 'E3: in vitro microtechnique' },
+    { term: ' mice',               reason: 'E3: animal model (mice)' },
+    { term: 'mouse model',         reason: 'E3: animal model (mouse)' },
+    { term: 'murine',              reason: 'E3: animal model (murine)' },
+    { term: 'aotus',               reason: 'E3: animal model (Aotus monkey)' },
+    { term: 'in monkeys',          reason: 'E3: animal model (monkey)' },
+    // Reviews / secondary data
+    { term: 'systematic review',   reason: 'E4: systematic review' },
+    { term: 'meta-analysis',       reason: 'E4: meta-analysis' },
+    { term: 'scoping review',      reason: 'E4: scoping review' },
+    { term: 'pooled analysis',     reason: 'E4: pooled analysis' },
+    { term: 'cochrane',            reason: 'E4: Cochrane review' },
+    { term: 'case report',         reason: 'E4: case report' },
+    { term: 'case series',         reason: 'E4: case series' },
+    // Wrong disease
+    { term: 'hiv',                 reason: 'E2: HIV (wrong pathogen)' },
+    { term: 'tuberculosis',        reason: 'E2: tuberculosis (wrong pathogen)' },
+    { term: ' cancer',             reason: 'E2: cancer (wrong disease)' },
+    { term: 'dengue',              reason: 'E2: dengue (wrong pathogen)' },
+    { term: 'ebola',               reason: 'E2: Ebola (wrong pathogen)' },
+    { term: 'covid',               reason: 'E2: COVID (wrong pathogen)' },
+    // Insecticide only
+    { term: 'insecticide resistance', reason: 'E3: insecticide resistance (not drug resistance)' },
+    // Wrong geography — non-African
+    { term: 'papua new guinea',    reason: 'E1: Papua New Guinea (not West Africa)' },
+    { term: 'malaysia',            reason: 'E1: Malaysia (not Africa)' },
+    { term: 'thailand',            reason: 'E1: Thailand (not Africa)' },
+    { term: 'cambodia',            reason: 'E1: Cambodia (not Africa)' },
+    { term: 'vietnam',             reason: 'E1: Vietnam (not Africa)' },
+    { term: 'myanmar',             reason: 'E1: Myanmar (not Africa)' },
+    { term: 'indonesia',           reason: 'E1: Indonesia (not Africa)' },
+    { term: 'philippines',         reason: 'E1: Philippines (not Africa)' },
+    { term: 'bangladesh',          reason: 'E1: Bangladesh (not Africa)' },
+    { term: 'india',               reason: 'E1: India (not Africa)' },
+    { term: 'china',               reason: 'E1: China (not Africa)' },
+    { term: 'brazil',              reason: 'E1: Brazil (not Africa)' },
+    { term: 'colombia',            reason: 'E1: Colombia (not Africa)' },
+    { term: 'peru',                reason: 'E1: Peru (not Africa)' },
+    { term: 'haiti',               reason: 'E1: Haiti (not Africa)' },
+    // Wrong geography — non-West-African Africa
+    { term: 'rwanda',              reason: 'E1: Rwanda (not West Africa)' },
+    { term: 'ethiopia',            reason: 'E1: Ethiopia (not West Africa)' },
+    { term: 'tanzania',            reason: 'E1: Tanzania (not West Africa)' },
+    { term: 'kenya',               reason: 'E1: Kenya (not West Africa)' },
+    { term: 'uganda',              reason: 'E1: Uganda (not West Africa)' },
+    { term: 'south africa',        reason: 'E1: South Africa (not West Africa)' },
+    { term: 'madagascar',          reason: 'E1: Madagascar (not West Africa)' },
+    { term: 'mozambique',          reason: 'E1: Mozambique (not West Africa)' },
+    { term: 'zambia',              reason: 'E1: Zambia (not West Africa)' },
+    { term: 'malawi',              reason: 'E1: Malawi (not West Africa)' },
+    { term: 'zimbabwe',            reason: 'E1: Zimbabwe (not West Africa)' },
+    { term: 'angola',              reason: 'E1: Angola (not West Africa)' },
+    { term: 'congo',               reason: 'E1: Congo (not West Africa)' },
+    { term: 'gabon',               reason: 'E1: Gabon (not West Africa)' },
   ];
 
-  // Molecular resistance terms — specific enough to confirm resistance data
-  const resistanceTerms = [
-    'pfcrt','pfmdr','pfkelch','kelch13','pfdhfr','pfdhps','plasmepsin',
-    'mutation','allele','haplotype','genotype','polymorphism','snp',
-    'molecular marker','resistance marker','drug resistance marker',
-    'resistance gene','resistance mutation','molecular surveillance',
-    'k13','k76','n86','c580y','a437g','n51i','c59r','s108n',
-    'molecular epidemiology'
-  ];
-
-  // Terms that indicate non-primary-data or irrelevant study types
-  const softExclude = [
-    'vaccination','vaccine trial','monoclonal','gametocyte','gametocytaemia',
-    'immune response','immunity','immunology','antibody response',
-    'population dynamics','mathematical model','modelling','simulation',
-    'military','humanitarian mission','traveller','travel-associated','imported',
-    'pharmacokinetics','pharmacodynamics','clinical immunity',
-    'editorial','commentary','letter to','viewpoint',
-    'ultrasonograph','splenic','histidine-rich','diagnostic accuracy',
-    'serum level','soluble','cytokine','interleukin',
-    'insecticide','mosquito control','vector control','bed net',
-    'qualitative study','focus group','knowledge attitude'
+  // HARD INCLUDES — West African country + explicit gene name (very high confidence)
+  const geneNames = [
+    'pfcrt','pfmdr1','pfmdr','pfkelch13','pfkelch','kelch13','k13',
+    'pfdhfr','pfdhps','plasmepsin','pfpm2','pfpm3',
+    'pfatpase','pfmrp','pfk13'
   ];
 
   const hasWestAfrica = westAfrica.some(c => tl.includes(c));
-  const hasHardExclude = hardExcludeTerms.some(t => tl.includes(t));
-  const hasResistance = resistanceTerms.some(t => tl.includes(t));
-  const hasSoftExclude = softExclude.some(t => tl.includes(t));
 
-  // RULE 1: Hard exclude ALWAYS wins — even if West Africa + resistance present
-  if (hasHardExclude) {
-    const trigger = hardExcludeTerms.find(t => tl.includes(t));
-    return { verdict: 'exc', score: 0.05, reason: 'Hard exclude: ' + trigger };
+  // Check hard excludes first — no exceptions
+  for (const { term, reason } of hardExcludes) {
+    if (tl.includes(term)) {
+      // Exception: if a West African country is ALSO mentioned AND
+      // the exclude is geography-based, still exclude (geography is definitive)
+      // For non-geographic excludes (in vitro, review etc.) — always exclude
+      return { verdict: 'exc', score: 0.02, reason };
+    }
   }
 
-  // RULE 2: Soft exclude with West Africa → MAYBE (needs abstract review)
-  if (hasSoftExclude && hasWestAfrica) {
-    const trigger = softExclude.find(t => tl.includes(t));
-    return { verdict: 'maybe', score: 0.35, reason: 'Soft exclude flag: ' + trigger + ' — needs abstract' };
+  // Hard include: West African country + explicit gene name
+  if (hasWestAfrica) {
+    const matchedGene = geneNames.find(g => tl.includes(g));
+    if (matchedGene) {
+      const country = westAfrica.find(c => tl.includes(c));
+      return { verdict: 'inc', score: 0.95, reason: `I2+I3: ${matchedGene} + ${country} in title` };
+    }
   }
 
-  // RULE 3: West Africa + molecular marker + no soft exclude → AUTO INCLUDE
-  if (hasWestAfrica && hasResistance && !hasSoftExclude) {
-    return { verdict: 'inc', score: 0.92, reason: 'West African country + molecular resistance term in title' };
-  }
-
-  // RULE 4: West Africa but no molecular marker → MAYBE (send to API)
-  if (hasWestAfrica && !hasResistance) {
-    return null; // API decides
-  }
-
-  // RULE 5: No West Africa → send to API
-  return null;
+  // Everything else → MAYBE (human review)
+  return { verdict: 'maybe', score: 0.5, reason: hasWestAfrica
+    ? 'West African country in title — no explicit gene name, needs review'
+    : 'No definitive geography or marker — needs review' };
 }
 
 // Strict single-request queue
@@ -2335,6 +2367,7 @@ async function predictBatch(stage) {
   }
 
   window._batchRunning = true;
+  window._apiQueue = Promise.resolve(); // reset queue in case previous run left it broken
   if (btn) { btn.disabled = false; btn.textContent = '⏳ 0/? · click to stop'; }
 
   const recs = records.filter(r => !r.isDuplicate && !r.prediction);
@@ -2484,6 +2517,32 @@ function exportRandomSample() {
   a.download = `supervisor_sample_30pct_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   toast(`Exported ${sample.length} articles (30% of ${unique.length} unique records)`);
+}
+
+// ── PRE-SCREEN ALL (instant, no API) ─────────────────────────────────────────
+function runPreScreenAll() {
+  const btn = document.getElementById('btn-prescreen-all');
+  const info = document.getElementById('prescreen-info');
+  if (btn) btn.disabled = true;
+
+  const unpredicted = records.filter(r => !r.isDuplicate && !r.prediction);
+  let inc = 0, exc = 0, maybe = 0;
+
+  unpredicted.forEach(rec => {
+    const result = preScreen(rec.title || '');
+    rec.prediction = result;
+    if (result.verdict === 'inc') inc++;
+    else if (result.verdict === 'exc') exc++;
+    else maybe++;
+  });
+
+  updateStats();
+  updateSaveStatus();
+
+  const msg = `Pre-screen done: ${inc} include · ${exc} exclude · ${maybe} maybe`;
+  if (info) info.textContent = msg;
+  if (btn) btn.disabled = false;
+  toast(msg + ' — 💾 Save Session!');
 }
 
 // ── PAINTBRUSH DRAG SELECTION ────────────────────────────────────────────────
