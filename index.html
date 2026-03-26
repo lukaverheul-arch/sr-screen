@@ -735,7 +735,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v9</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v12</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -957,6 +957,14 @@
         </select>
         <button class="btn btn-ghost" style="font-size:11px" onclick="exportCSV('title')">Export</button>
         <button class="predict-panel-btn" id="btn-predict-batch-title" onclick="predictBatch('title')">✦ Predict All</button>
+      </div>
+      <div class="brush-toolbar" id="brush-toolbar">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.06em">PAINTBRUSH</span>
+        <button class="brush-btn brush-inc" id="brush-inc" onclick="setBrush('inc')">🖌 Include</button>
+        <button class="brush-btn brush-exc" id="brush-exc" onclick="setBrush('exc')">🖌 Exclude</button>
+        <button class="brush-btn brush-maybe" id="brush-maybe" onclick="setBrush('maybe')">🖌 Maybe</button>
+        <button class="brush-btn brush-clear" id="brush-off" onclick="setBrush(null)">✕ Off</button>
+        <span class="brush-count" id="brush-count"></span>
       </div>
       <div id="title-list-pages" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
       <div id="title-list"></div>
@@ -1873,7 +1881,7 @@ function buildRecordHTML(rec, i, stage) {
   const decClass = dec ? 'decided-' + dec : '';
   return `
   <div class="record-item ${decClass} ${isExp?'expanded':''}" id="ri-${rec.id}-${stage}">
-    <div class="record-header" onclick="toggleExpand('${rec.id}','${stage}')">
+    <div class="record-header" onclick="if(!brushMode) toggleExpand('${rec.id}','${stage}')">
       <div class="record-num">${String(i+1).padStart(4,'0')}</div>
       <div class="record-title-text">${rec.title || '<em>No title</em>'}</div>
       <div class="record-meta">
@@ -2094,6 +2102,78 @@ async function predictOne(id, stage, e) {
   }
 }
 
+function preScreen(articleText) {
+  const tl = articleText.toLowerCase();
+  const westAfrica = ['nigeria','ghana','senegal','mali','burkina faso','benin','togo','niger',
+    'cameroon','guinea','liberia','sierra leone','gambia','mauritania','cabo verde','cape verde',
+    'guinea-bissau','ivory coast',"cote d'ivoire",'cote divoire','equatorial guinea','chad'];
+  const hardExclude = ['papua new guinea','malaysia','thailand','cambodia','vietnam','myanmar',
+    'in vitro','in-vitro','ex vivo','cell line','aotus','systematic review','meta-analysis',
+    'scoping review','pooled analysis','hiv','tuberculosis',' cancer','dengue','ebola',
+    'insecticide resistance','case report','case series','monoclonal antibody','vaccine'];
+  const resistanceTerms = ['pfcrt','pfmdr','pfkelch','kelch13','kelch 13','pfdhfr','pfdhps',
+    'plasmepsin','mutation','allele','haplotype','genotype','polymorphism','snp',
+    'molecular marker','resistance marker','drug resistance marker',
+    'resistance gene','resistance mutation','molecular surveillance',
+    'k13','k76','n86','c580y','a437g','n51i','c59r','s108n','dhfr','dhps'];
+
+  const hasWestAfrica = westAfrica.some(c => tl.includes(c));
+  const hasHardExclude = hardExclude.some(t => tl.includes(t));
+  const hasResistance = resistanceTerms.some(t => tl.includes(t));
+
+  // These override everything including West Africa + resistance
+  const absoluteExclude = ['in vitro','in-vitro','ex vivo','systematic review','meta-analysis',
+    'scoping review','pooled analysis','aotus','in mice','in mouse'];
+  const hasAbsoluteExclude = absoluteExclude.some(t => tl.includes(t));
+
+  if (hasAbsoluteExclude)
+    return { verdict: 'exc', score: 0.05, reason: 'Hard exclude: ' + absoluteExclude.find(t => tl.includes(t)) };
+  if (hasHardExclude && !hasWestAfrica)
+    return { verdict: 'exc', score: 0.05, reason: 'Hard exclude: ' + hardExclude.find(t => tl.includes(t)) };
+  if (hasWestAfrica && hasResistance)
+    return { verdict: 'inc', score: 0.92, reason: 'West African country + molecular resistance term in title' };
+  if (hasWestAfrica && !hasResistance)
+    return null; // send to API — has West Africa but needs judgment
+  return null; // send to API — ambiguous
+}
+
+async function callAPIOnly(articleText) {
+  // Only raw API call — no pre-screen here
+  if (!API_KEY) throw new Error('No API key');
+  const title = articleText.substring(0, 250);
+  const prompt = `Classify for a systematic review on antimalarial drug resistance molecular markers in West Africa. Reply ONLY with JSON.
+
+EXCLUDE if: non-African geography only, animal study (mice/monkey/Aotus), in vitro, review/meta-analysis, unrelated disease (HIV/TB/cancer/dengue), case report, health-seeking/behaviour study, diagnostic accuracy only.
+INCLUDE if: molecular resistance markers (pfcrt/pfmdr1/kelch13/pfdhfr/pfdhps/mutations/alleles/polymorphisms) AND malaria AND Africa.
+MAYBE if: malaria in Africa but unclear whether resistance data present.
+
+Reply with ONLY this JSON (real values, not placeholders):
+{"verdict":"maybe","score":0.5,"reason":"malaria in Africa, unclear if resistance data"}
+
+Title: ${title}`;
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+    body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
+      max_tokens: 80,
+      temperature: 0.0,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!response.ok) throw new Error('429');
+  const data = await response.json();
+  const raw = data.choices?.[0]?.message?.content || '';
+  const jsonMatch = raw.match(/\{[\s\S]*?\}/);
+  if (jsonMatch) {
+    try { return JSON.parse(jsonMatch[0]); } catch(e) {}
+  }
+  const lc = raw.toLowerCase();
+  const verdict = lc.includes('exc') ? 'exc' : lc.includes('inc') ? 'inc' : 'maybe';
+  return { verdict, score: verdict === 'exc' ? 0.15 : verdict === 'inc' ? 0.85 : 0.5, reason: 'fallback: ' + raw.substring(0, 80) };
+}
+
 async function callPredictAPI(articleText) {
   if (!API_KEY) throw new Error('No API key — paste your Groq API key in the header field');
 
@@ -2112,7 +2192,6 @@ async function callPredictAPI(articleText) {
 
 async function _doApiCall(articleText) {
   const title = articleText.substring(0, 250);
-  // Note: pre-screen logic above may return early
 
   // Pre-screen with JS before calling API to save tokens and avoid wrong calls
   const tl = title.toLowerCase();
@@ -2125,11 +2204,11 @@ async function _doApiCall(articleText) {
     'insecticide resistance','case report','case series','monoclonal antibody','vaccine'];
   // Only terms that strongly imply molecular resistance marker data
   // Drug names alone are NOT enough — paper must mention markers/mutations/genotypes
-  const resistanceTerms = ['pfcrt','pfmdr','pfkelch','kelch13','pfdhfr','pfdhps',
+  const resistanceTerms = ['pfcrt','pfmdr','pfkelch','kelch13','kelch 13','pfdhfr','pfdhps',
     'plasmepsin','mutation','allele','haplotype','genotype','polymorphism','snp',
     'molecular marker','resistance marker','drug resistance marker',
     'resistance gene','resistance mutation','molecular surveillance',
-    'k13','k76','n86','c580y','a437g','n51i','c59r','s108n'];
+    'k13','k76','n86','c580y','a437g','n51i','c59r','s108n','dhfr','dhps'];
 
   const hasWestAfrica = westAfrica.some(c => tl.includes(c));
   const hasHardExclude = hardExclude.some(t => tl.includes(t));
@@ -2228,17 +2307,29 @@ async function predictBatch(stage) {
 
     if (btn) btn.textContent = `⏳ ${done}/${total} · ${delay/1000}s · click to stop`;
 
+    // Pre-screen with JS first — no API call needed for clear cases
+    const preResult = preScreen(rec.title || '');
+    if (preResult) {
+      rec.prediction = preResult;
+      done++;
+      updateSaveStatus();
+      if (done % 100 === 0) toast(`${done}/${total} predicted — 💾 Save Session!`);
+      // No sleep needed for pre-screened records
+      continue;
+    }
+
+    // Ambiguous — needs API call
     try {
-      const result = await callPredictAPI(rec.title || '');
+      const result = await callAPIOnly(rec.title || '');
       rec.prediction = result;
       done++;
       updateSaveStatus();
       if (done % 100 === 0) toast(`${done}/${total} predicted — 💾 Save Session!`);
     } catch(err) {
       if (err.message.includes('429')) {
-        delay = Math.min(delay + 3000, 20000); // ramp up delay, cap at 20s
+        delay = Math.min(delay + 3000, 20000);
         if (btn) btn.textContent = `⏳ ${done}/${total} · 429! slowing to ${delay/1000}s...`;
-        await sleep(delay * 2); // double wait on 429
+        await sleep(delay * 2);
         i--; // retry same record
         continue;
       } else {
@@ -2350,6 +2441,86 @@ function exportRandomSample() {
   a.download = `supervisor_sample_30pct_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   toast(`Exported ${sample.length} articles (30% of ${unique.length} unique records)`);
+}
+
+// ── PAINTBRUSH DRAG SELECTION ────────────────────────────────────────────────
+let brushMode = null;
+let brushCount = 0;
+let isDragging = false;
+let brushedIds = new Set();
+
+function setBrush(mode) {
+  brushMode = mode;
+  ['inc','exc','maybe','off'].forEach(m => {
+    const btn = document.getElementById('brush-' + m);
+    if (btn) btn.classList.toggle('active', m === mode || (m === 'off' && !mode));
+  });
+  document.body.classList.toggle('brush-mode', !!mode);
+  brushCount = 0;
+  brushedIds.clear();
+  const countEl = document.getElementById('brush-count');
+  if (countEl) countEl.textContent = mode ? `Hold & drag to paint ${brushMode.toUpperCase()}` : '';
+}
+
+function applyBrushToElement(el) {
+  if (!brushMode || !el) return;
+  // Find the record id from element
+  const match = el.id && el.id.match(/^ri-(.+)-(title|abstract)$/);
+  if (!match) return;
+  const id = match[1];
+  const stage = match[2];
+  if (brushedIds.has(id)) return; // already painted this drag
+  brushedIds.add(id);
+
+  const rec = records.find(r => r.id === id);
+  if (!rec) return;
+  rec[stage + 'Decision'] = brushMode;
+  if (brushMode !== 'exc') rec[stage + 'Reason'] = null;
+  brushCount++;
+  save();
+  updateStats();
+
+  // Update visual
+  el.className = el.className.replace(/decided-\S+/g, '').trim();
+  el.classList.add('decided-' + brushMode);
+  const metaEl = el.querySelector('.record-meta');
+  if (metaEl) {
+    const pred = rec.prediction ? `<span class="predict-badge predict-badge-${rec.prediction.verdict}">${Math.round((rec.prediction.score||0)*100)}%</span>` : '';
+    const yr = rec.year ? `<span class="meta-tag meta-year">${rec.year}</span>` : '';
+    const src = `<span class="meta-tag meta-src">${rec.source.toUpperCase()}</span>`;
+    const badge = `<span class="decision-badge badge-${brushMode}">${brushMode.toUpperCase()}</span>`;
+    metaEl.innerHTML = pred + yr + src + badge;
+  }
+  const countEl = document.getElementById('brush-count');
+  if (countEl) countEl.textContent = `${brushCount} painted`;
+}
+
+// Global mouse events for drag painting
+document.addEventListener('mousedown', function(e) {
+  if (!brushMode) return;
+  isDragging = true;
+  brushedIds.clear();
+  const item = e.target.closest('.record-item');
+  if (item) { e.preventDefault(); applyBrushToElement(item); }
+});
+
+document.addEventListener('mousemove', function(e) {
+  if (!brushMode || !isDragging) return;
+  const item = e.target.closest('.record-item');
+  if (item) applyBrushToElement(item);
+});
+
+document.addEventListener('mouseup', function(e) {
+  if (!brushMode) return;
+  isDragging = false;
+  if (brushCount > 0) { save(); updateStats(); }
+});
+
+function brushRecord(id, stage) {
+  // kept for single-click fallback
+  if (!brushMode) return;
+  const el = document.getElementById('ri-' + id + '-' + stage);
+  if (el) applyBrushToElement(el);
 }
 
 // UTILS
