@@ -747,7 +747,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v19</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v20</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -907,6 +907,9 @@
       </button>
       <button class="btn btn-ghost" id="btn-prescreen-all" onclick="runPreScreenAll()" disabled style="font-size:11px">
         ⚡ Pre-screen All (instant, no API)
+      </button>
+      <button class="btn btn-ghost" id="btn-apply-decisions" onclick="applyPreScreenDecisions()" disabled style="font-size:11px">
+        ✓ Apply Inc/Exc Decisions
       </button>
       <span id="prescreen-info" style="font-family:var(--mono);font-size:11px;color:var(--text3)"></span>
       <span id="sample-info" style="font-family:var(--mono);font-size:11px;color:var(--text3)"></span>
@@ -2278,17 +2281,15 @@ function preScreen(articleText) {
 
   const hasWestAfrica = westAfrica.some(c => tl.includes(c));
 
-  // Check hard excludes first — no exceptions
+  // HARD EXCLUDES WIN OVER EVERYTHING — no exceptions, no overrides
   for (const { term, reason } of hardExcludes) {
     if (tl.includes(term)) {
-      // Exception: if a West African country is ALSO mentioned AND
-      // the exclude is geography-based, still exclude (geography is definitive)
-      // For non-geographic excludes (in vitro, review etc.) — always exclude
       return { verdict: 'exc', score: 0.02, reason };
     }
   }
 
-  // Hard include: West African country + explicit gene name
+  // Hard include: West African country + explicit gene/resistance phrase
+  // Only reached if no hard exclude matched
   if (hasWestAfrica) {
     const matchedGene = geneNames.find(g => tl.includes(g));
     if (matchedGene) {
@@ -2535,6 +2536,34 @@ function exportRandomSample() {
 }
 
 // ── PRE-SCREEN ALL (instant, no API) ─────────────────────────────────────────
+function applyPreScreenDecisions() {
+  if (!confirm('This will set titleDecision for all records with inc/exc predictions. MAYBEs are left undecided. Continue?')) return;
+
+  let applied_inc = 0, applied_exc = 0, skipped = 0;
+
+  records.forEach(rec => {
+    if (rec.isDuplicate) return;
+    const p = rec.prediction;
+    if (!p) return;
+    // Only apply hard inc/exc — not maybe
+    if (p.verdict === 'inc' && !rec.titleDecision) {
+      rec.titleDecision = 'inc';
+      applied_inc++;
+    } else if (p.verdict === 'exc' && !rec.titleDecision) {
+      rec.titleDecision = 'exc';
+      applied_exc++;
+    } else {
+      skipped++;
+    }
+  });
+
+  save();
+  updateStats();
+  const msg = `Applied: ${applied_inc} included, ${applied_exc} excluded, ${skipped} left for review`;
+  document.getElementById('prescreen-info').textContent = msg;
+  toast(msg + ' — 💾 Save Session!');
+}
+
 function runPreScreenAll() {
   const btn = document.getElementById('btn-prescreen-all');
   const info = document.getElementById('prescreen-info');
@@ -2557,7 +2586,9 @@ function runPreScreenAll() {
   const msg = `Pre-screen done: ${inc} include · ${exc} exclude · ${maybe} maybe`;
   if (info) info.textContent = msg;
   if (btn) btn.disabled = false;
-  toast(msg + ' — 💾 Save Session!');
+  const applyBtn = document.getElementById('btn-apply-decisions');
+  if (applyBtn) applyBtn.disabled = false;
+  toast(msg + ' — click Apply Inc/Exc Decisions to commit, or review first');
 }
 
 // ── PAINTBRUSH DRAG SELECTION ────────────────────────────────────────────────
