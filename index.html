@@ -747,7 +747,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v21</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v23</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -2249,7 +2249,9 @@ function preScreen(articleText) {
 
   const westAfrica = ['nigeria','ghana','senegal','mali','burkina faso','benin','togo','niger',
     'cameroon','guinea','liberia','sierra leone','gambia','mauritania','cabo verde','cape verde',
-    'guinea-bissau','ivory coast',"cote d'ivoire",'cote divoire','equatorial guinea','chad'];
+    'guinea-bissau','ivory coast',"cote d'ivoire",'cote divoire','equatorial guinea','chad',
+    // Broad regional terms that include West Africa
+    'west africa','western africa','west african','sahel','ecowas'];
 
   // HARD EXCLUDES — always exclude, no exceptions
   const hardExcludes = [
@@ -2267,6 +2269,9 @@ function preScreen(articleText) {
     { term: 'in monkeys',          reason: 'E3: animal model (monkey)' },
     // Reviews / secondary data
     { term: 'systematic review',   reason: 'E4: systematic review' },
+    { term: 'a systematic review', reason: 'E4: systematic review' },
+    { term: ': a review',          reason: 'E4: review article' },
+    { term: ': systematic',        reason: 'E4: systematic review' },
     { term: 'meta-analysis',       reason: 'E4: meta-analysis' },
     { term: 'scoping review',      reason: 'E4: scoping review' },
     { term: 'pooled analysis',     reason: 'E4: pooled analysis' },
@@ -2286,6 +2291,10 @@ function preScreen(articleText) {
     { term: 'adherence to antimalarial', reason: 'E4: adherence study (no molecular data)' },
     { term: 'health-seeking',          reason: 'E4: health-seeking behaviour study' },
     { term: 'deployed to',             reason: 'E4: military deployment study' },
+    { term: 'individual-based model',  reason: 'E4: mathematical/simulation model' },
+    { term: 'agent-based model',       reason: 'E4: mathematical/simulation model' },
+    { term: 'spatially coupled',       reason: 'E4: mathematical/simulation model' },
+    { term: 'national-scale simulation', reason: 'E4: mathematical/simulation model' },
     // Wrong geography — non-African
     { term: 'papua new guinea',    reason: 'E1: Papua New Guinea (not West Africa)' },
     { term: 'malaysia',            reason: 'E1: Malaysia (not Africa)' },
@@ -2317,6 +2326,15 @@ function preScreen(articleText) {
     { term: 'angola',              reason: 'E1: Angola (not West Africa)' },
     { term: 'congo',               reason: 'E1: Congo (not West Africa)' },
     { term: 'gabon',               reason: 'E1: Gabon (not West Africa)' },
+    // US states / non-African specific locations
+    { term: 'rhode island',        reason: 'E1: Rhode Island, USA (not Africa)' },
+    { term: 'bronx',               reason: 'E1: Bronx, USA (not Africa)' },
+    // Wrong pathogen as primary focus
+    { term: 'schistosoma',         reason: 'E2: Schistosoma (wrong pathogen as primary)' },
+    { term: 'schistosomiasis',     reason: 'E2: schistosomiasis (wrong pathogen)' },
+    { term: 'helminth',            reason: 'E2: helminth infection (wrong pathogen)' },
+    { term: 'trypanosoma',         reason: 'E2: Trypanosoma (wrong pathogen)' },
+    { term: 'leishmaniasis',       reason: 'E2: leishmaniasis (wrong pathogen)' },
   ];
 
   // HARD INCLUDES — West African country + explicit gene name (very high confidence)
@@ -2334,15 +2352,37 @@ function preScreen(articleText) {
     'drug-resistant clone','drug-resistant parasit','antimalarial resistance',
     'resistance profil','resistance genotyp','resistance haplotyp',
     'resistance allel','resistance polymorphism',
-    'surveillance of malaria drug resistance','malaria drug resistance'
+    'surveillance of malaria drug resistance','malaria drug resistance',
+    // More title phrases that strongly imply resistance marker data
+    'drug resistant biomarker','drug-resistant biomarker',
+    'resistance biomarker','antibiotic resistance marker',
+    'molecular marker of','markers of resistance',
+    'markers of sulfadoxine','markers of chloroquine','markers of artemisinin',
+    'resistance to sulfadoxine','resistance to chloroquine','resistance to artemisinin',
+    'resistance to lumefantrine','resistance to piperaquine',
+    'chloroquine-resistant','artemisinin-resistant','sulfadoxine-resistant',
+    'drug-resistant strain','drug-resistant isolate','drug-resistant parasit',
+    'resistance determinant','resistance loci','selection on','selective sweep'
   ];
 
   const hasWestAfrica = westAfrica.some(c => tl.includes(c));
 
-  // HARD EXCLUDES WIN OVER EVERYTHING — no exceptions, no overrides
-  for (const { term, reason } of hardExcludes) {
+  // Non-geographic hard excludes ALWAYS win
+  const nonGeoExcludes = hardExcludes.filter(e => !e.reason.startsWith('E1:'));
+  for (const { term, reason } of nonGeoExcludes) {
     if (tl.includes(term)) {
       return { verdict: 'exc', score: 0.02, reason };
+    }
+  }
+
+  // Geographic hard excludes only fire if NO West African country is present
+  // e.g. "Within-host competition...Angola, Ghana, Tanzania" → Ghana saves it
+  if (!hasWestAfrica) {
+    const geoExcludes = hardExcludes.filter(e => e.reason.startsWith('E1:'));
+    for (const { term, reason } of geoExcludes) {
+      if (tl.includes(term)) {
+        return { verdict: 'exc', score: 0.02, reason };
+      }
     }
   }
 
@@ -2603,11 +2643,14 @@ function applyPreScreenDecisions() {
     if (rec.isDuplicate) return;
     const p = rec.prediction;
     if (!p) return;
-    // Only apply hard inc/exc — not maybe
-    if (p.verdict === 'inc' && !rec.titleDecision) {
+    const wasPS = p.reason && (p.reason.startsWith('I2+I3:') || p.reason.startsWith('Hard exclude:') ||
+      p.reason.startsWith('E1:') || p.reason.startsWith('E2:') || p.reason.startsWith('E3:') || p.reason.startsWith('E4:') ||
+      p.reason.startsWith('West African country'));
+    // Apply inc/exc from pre-screen — overwrite previous PS decisions but not manual ones
+    if (p.verdict === 'inc' && (!rec.titleDecision || wasPS)) {
       rec.titleDecision = 'inc';
       applied_inc++;
-    } else if (p.verdict === 'exc' && !rec.titleDecision) {
+    } else if (p.verdict === 'exc' && (!rec.titleDecision || wasPS)) {
       rec.titleDecision = 'exc';
       applied_exc++;
     } else {
