@@ -747,7 +747,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v24</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v26</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -2286,7 +2286,7 @@ function preScreen(articleText) {
     { term: 'tuberculosis',        reason: 'E2: tuberculosis (wrong pathogen)' },
     { term: ' cancer',             reason: 'E2: cancer (wrong disease)' },
     { term: 'dengue',              reason: 'E2: dengue (wrong pathogen)' },
-    { term: 'ebola',               reason: 'E2: Ebola (wrong pathogen)' },
+    { term: 'ebola virus disease',  reason: 'E2: Ebola virus disease (wrong pathogen)' },
     { term: 'covid',               reason: 'E2: COVID (wrong pathogen)' },
     // Insecticide only
     { term: 'insecticide resistance', reason: 'E3: insecticide resistance (not drug resistance)' },
@@ -2294,6 +2294,8 @@ function preScreen(articleText) {
     { term: 'adherence to antimalarial', reason: 'E4: adherence study (no molecular data)' },
     { term: 'health-seeking',          reason: 'E4: health-seeking behaviour study' },
     { term: 'deployed to',             reason: 'E4: military deployment study' },
+    { term: 'systematic analysis of',  reason: 'E4: systematic analysis (secondary data)' },
+    { term: 'national trends',         reason: 'E4: trend analysis (secondary data)' },
     { term: 'individual-based model',  reason: 'E4: mathematical/simulation model' },
     { term: 'agent-based model',       reason: 'E4: mathematical/simulation model' },
     { term: 'spatially coupled',       reason: 'E4: mathematical/simulation model' },
