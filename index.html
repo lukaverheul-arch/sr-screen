@@ -747,7 +747,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v28</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v30</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -976,6 +976,17 @@
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
         <button class="btn btn-ghost" style="font-size:11px" onclick="toggleListView()">← Back to Flashcard</button>
         <input class="search-box" id="title-list-search" placeholder="Search titles..." oninput="renderTitleList()" style="flex:1">
+        <select id="list-reason-filter" onchange="renderTitleList()" style="font-family:var(--mono);font-size:11px;padding:6px 10px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);border-radius:4px;max-width:260px">
+          <option value="">All reasons</option>
+          <option value="West African country in title">WA country — no molecular term</option>
+          <option value="No definitive geography">No geography or marker</option>
+          <option value="I2+I3">Auto-include (I2+I3)</option>
+          <option value="Hard exclude">Hard exclude</option>
+          <option value="E1:">E1: Wrong geography</option>
+          <option value="E2:">E2: Wrong pathogen</option>
+          <option value="E3:">E3: No molecular data</option>
+          <option value="E4:">E4: No primary data</option>
+        </select>
         <select id="list-page-size" onchange="renderTitleList()" style="font-family:var(--mono);font-size:11px;padding:6px 10px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);border-radius:4px">
           <option value="50">50 per page</option>
           <option value="100" selected>100 per page</option>
@@ -1810,6 +1821,8 @@ function renderTitleList() {
   const pageSize = parseInt(document.getElementById('list-page-size')?.value || '100');
   let recs = records.filter(r => !r.isDuplicate);
   if (q) recs = recs.filter(r => r.title.toLowerCase().includes(q));
+  const reasonFilter = document.getElementById('list-reason-filter')?.value || '';
+  if (reasonFilter) recs = recs.filter(r => (r.prediction?.reason || '').includes(reasonFilter));
 
   const totalPages = Math.ceil(recs.length / pageSize);
   if (fcListPage >= totalPages) fcListPage = 0;
@@ -2294,16 +2307,29 @@ function preScreen(articleText) {
     { term: 'pyrethroid resistance',   reason: 'E3: pyrethroid resistance (insecticide, not drug)' },
     { term: 'kdr mutation',            reason: 'E3: kdr mutation (insecticide resistance)' },
     { term: 'kdr resistance',          reason: 'E3: kdr resistance (insecticide resistance)' },
-    { term: 'insecticide-treated',     reason: 'E3: insecticide-treated nets study' },
-    { term: 'bed net',                 reason: 'E3: bed net/insecticide study' },
+    // insecticide-treated and bed net removed — mixed papers should be MAYBE
     { term: 'anopheles gambiae',       reason: 'E3: Anopheles mosquito study (entomology)' },
+    { term: 'anopheles mosquito',      reason: 'E3: Anopheles mosquito study (entomology)' },
+    { term: 'of anopheles',            reason: 'E3: Anopheles mosquito study (entomology)' },
+    { term: 'in anopheles',            reason: 'E3: Anopheles mosquito study (entomology)' },
     { term: 'anopheles funestus',      reason: 'E3: Anopheles mosquito study (entomology)' },
+    { term: 'anopheles coluzzii',      reason: 'E3: Anopheles mosquito study (entomology)' },
+    { term: 'anopheles arabiensis',    reason: 'E3: Anopheles mosquito study (entomology)' },
     { term: 'antibiotic resistance',   reason: 'E2: antibiotic resistance (wrong pathogen)' },
     { term: 'antimicrobial resistance',reason: 'E2: antimicrobial resistance (wrong pathogen)' },
-    { term: 'drug policy',             reason: 'E4: drug policy/adherence study (no molecular data)' },
+    { term: 'drug use policy',          reason: 'E4: drug use policy study (no molecular data)' },
     { term: 'adherence to antimalarial', reason: 'E4: adherence study (no molecular data)' },
     { term: 'health-seeking',          reason: 'E4: health-seeking behaviour study' },
     { term: 'deployed to',             reason: 'E4: military deployment study' },
+    { term: 'herbal',                  reason: 'E3: herbal/plant extract study' },
+    { term: 'plant extract',           reason: 'E3: plant extract study' },
+    { term: 'ethnobotanical',          reason: 'E3: ethnobotanical study' },
+    { term: 'medicinal plant',         reason: 'E3: medicinal plant study' },
+    { term: 'yoelii',                  reason: 'E3: rodent malaria model (P. yoelii)' },
+    { term: 'berghei',                 reason: 'E3: rodent malaria model (P. berghei)' },
+    { term: 'cost analysis',           reason: 'E4: cost analysis (no molecular data)' },
+    { term: 'cost-effectiveness',      reason: 'E4: cost-effectiveness analysis' },
+    { term: 'gene drive',              reason: 'E3: gene drive study (not drug resistance)' },
 
     { term: 'individual-based model',  reason: 'E4: mathematical/simulation model' },
     { term: 'agent-based model',       reason: 'E4: mathematical/simulation model' },
@@ -2359,7 +2385,7 @@ function preScreen(articleText) {
     // Explicit resistance phrases strong enough to auto-include with West African country
     'drug resistance gene','drug-resistant gene','drug resistance marker',
     'drug resistance mutation','drug resistance profile','drug resistance profil',
-    'resistance gene','resistance marker','resistance mutation','resistance loci',
+    'resistance gene pfcrt','resistance gene pfmdr','antimalarial resistance gene',
     'molecular marker','molecular map of','molecular surveillance',
     'chloroquine resistance','artemisinin resistance','sulfadoxine resistance',
     'piperaquine resistance','lumefantrine resistance','amodiaquine resistance',
@@ -2403,10 +2429,16 @@ function preScreen(articleText) {
   // Hard include: West African country + explicit gene/resistance phrase
   // Only reached if no hard exclude matched
   if (hasWestAfrica) {
+    // If title is primarily about Anopheles mosquitoes, downgrade to MAYBE even with resistance terms
+    const isAnophelesPaper = tl.includes('anopheles') && 
+      (tl.includes('mosquito') || tl.includes('vector') || tl.includes('entomolog') || 
+       tl.includes('gambiae') || tl.includes('funestus') || tl.includes('coluzzii') ||
+       tl.includes('arabiensis') || tl.includes('population genetic') && tl.includes('anopheles'));
+    
     const matchedGene = geneNames.find(g => tl.includes(g));
-    if (matchedGene) {
+    if (matchedGene && !isAnophelesPaper) {
       const country = westAfrica.find(c => tl.includes(c));
-      return { verdict: 'inc', score: 0.95, reason: `I2+I3: ${matchedGene} + ${country} in title` };
+      return { verdict: 'inc', score: 0.95, reason: 'I2+I3: ' + matchedGene + ' + ' + country + ' in title' };
     }
   }
 
