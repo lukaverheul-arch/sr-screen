@@ -747,7 +747,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v30</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v31</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -1630,7 +1630,15 @@ function fcRenderCard() {
 
   const rec = fcRecords[fcIndex];
   document.getElementById('fc-num').textContent = '#' + String(fcIndex + 1).padStart(4, '0') + ' · ' + rec.source.toUpperCase();
-  document.getElementById('fc-title').textContent = rec.title || 'No title';
+  const rawTitle = rec.title || 'No title';
+  // Highlight resistance-related words in title
+  const resistanceWords = ['resistance','resistant','mutation','polymorphism','genotype','allele','haplotype','pfcrt','pfmdr','kelch','pfdhfr','pfdhps','plasmepsin','molecular marker'];
+  let highlightedTitle = rawTitle;
+  resistanceWords.forEach(word => {
+    const regex = new RegExp('(' + word + ')', 'gi');
+    highlightedTitle = highlightedTitle.replace(regex, '<mark style="background:rgba(79,142,247,0.25);color:var(--text);border-radius:2px;padding:0 2px">$1</mark>');
+  });
+  document.getElementById('fc-title').innerHTML = highlightedTitle;
 
   // Meta
   const dec = rec.titleDecision;
@@ -2094,6 +2102,7 @@ function setDecision(id, stage, dec, e) {
   const rec = records.find(r => r.id === id);
   if (!rec) return;
   rec[stage + 'Decision'] = dec;
+  rec.decisionSource = 'manual';
   if (dec !== 'exc') rec[stage + 'Reason'] = null;
   save(); updateStats();
 
@@ -2109,8 +2118,9 @@ function setDecision(id, stage, dec, e) {
       const year = rec.year ? `<span class="meta-tag meta-year">${rec.year}</span>` : '';
       const pred = rec.prediction ? `<span class="predict-badge predict-badge-${rec.prediction.verdict}">${Math.round(rec.prediction.score*100)}%</span>` : '';
       const src = `<span class="meta-tag meta-src">${rec.source.toUpperCase()}</span>`;
-      const ps = rec.prediction && isPreScreened(rec.prediction) ? '<span style="font-family:var(--mono);font-size:9px;padding:1px 5px;background:var(--surface2);border:1px solid var(--border2);border-radius:2px;color:var(--text3);margin-left:3px">PS</span>' : '';
-      const badge = dec ? `<span class="decision-badge badge-${dec}">${dec.toUpperCase()}${ps}</span>` : '';
+      const isPS = rec.decisionSource === 'ps';
+      const psTag = isPS ? '<span style="font-family:var(--mono);font-size:9px;padding:1px 5px;background:var(--surface2);border:1px solid var(--border2);border-radius:2px;color:var(--text3);margin-left:3px">PS</span>' : '';
+      const badge = dec ? `<span class="decision-badge badge-${dec}">${dec.toUpperCase()}${psTag}</span>` : '';
       const reason = rec[stage+'Reason'] ? `<span class="meta-tag" style="background:var(--exc-bg);color:var(--exc);border:1px solid #4a1a18">${rec[stage+'Reason']}</span>` : '';
       metaEl.innerHTML = pred + year + src + badge + reason;
     }
@@ -2330,6 +2340,12 @@ function preScreen(articleText) {
     { term: 'cost analysis',           reason: 'E4: cost analysis (no molecular data)' },
     { term: 'cost-effectiveness',      reason: 'E4: cost-effectiveness analysis' },
     { term: 'gene drive',              reason: 'E3: gene drive study (not drug resistance)' },
+    { term: 'vaccine trial',           reason: 'E3: vaccine trial (not resistance study)' },
+    { term: 'vaccination trial',       reason: 'E3: vaccination trial (not resistance study)' },
+    { term: 'malaria vaccine',         reason: 'E3: malaria vaccine study' },
+    { term: 'transmission-blocking vaccine', reason: 'E3: transmission-blocking vaccine' },
+    { term: 'monoclonal antibody',     reason: 'E3: monoclonal antibody study' },
+    { term: 'seasonal malaria vaccination', reason: 'E3: seasonal malaria vaccination' },
 
     { term: 'individual-based model',  reason: 'E4: mathematical/simulation model' },
     { term: 'agent-based model',       reason: 'E4: mathematical/simulation model' },
@@ -2770,6 +2786,7 @@ function applyBrushToElement(el) {
   const rec = records.find(r => r.id === id);
   if (!rec) return;
   rec[stage + 'Decision'] = brushMode;
+  rec.decisionSource = 'manual';
   if (brushMode !== 'exc') rec[stage + 'Reason'] = null;
   brushCount++;
   save();
