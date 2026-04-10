@@ -2271,8 +2271,9 @@ async function predictOne(id, stage, e) {
   }
 }
 
-function preScreen(articleText) {
-  const tl = articleText.toLowerCase();
+function preScreen(title, abstract = '') {
+  const tl_title = title.toLowerCase();
+  const tl = (title + (abstract ? ' ' + abstract : '')).toLowerCase();
 
   const westAfrica = ['nigeria','ghana','senegal','mali','burkina faso','benin','togo','niger',
     'cameroon','guinea','liberia','sierra leone','gambia','mauritania','cabo verde','cape verde',
@@ -2307,8 +2308,22 @@ function preScreen(articleText) {
     { term: 'cochrane',            reason: 'E4: Cochrane review' },
     { term: 'case report',         reason: 'E4: case report' },
     { term: 'case series',         reason: 'E4: case series' },
+    { term: 'a case of ',          reason: 'E4: case report (single case)' },
+    { term: 'report of a case',    reason: 'E4: case report (single case)' },
+    { term: ': report of ',        reason: 'E4: case report series' },
+    { term: 'fatal case of ',      reason: 'E4: case report (fatal case)' },
+    { term: 'a fatal case',        reason: 'E4: case report (fatal case)' },
     { term: 'conference abstract',  reason: 'E4: conference abstract (not peer-reviewed)' },
     { term: 'abstract only',        reason: 'E4: abstract only (not peer-reviewed)' },
+    { term: 'a review on',          reason: 'E4: review article' },
+    { term: 'information dissemination', reason: 'E4: information dissemination study (no molecular data)' },
+    { term: 'health information',   reason: 'E4: health information study (no molecular data)' },
+    { term: 'physicochemical',      reason: 'E4: pharmaceutical quality study (no molecular data)' },
+    { term: 'substandard',          reason: 'E4: medicine quality study (not primary resistance data)' },
+    { term: 'falsified medicine',   reason: 'E4: medicine quality study (not primary resistance data)' },
+    { term: 'counterfeit',          reason: 'E4: counterfeit medicine study (not resistance data)' },
+    { term: 'traditional healer',   reason: 'E4: traditional healer knowledge study' },
+    { term: 'in silico',            reason: 'E3: in silico/computational study' },
     // Wrong disease
     { term: 'hiv',                 reason: 'E2: HIV (wrong pathogen)' },
     { term: 'tuberculosis',        reason: 'E2: tuberculosis (wrong pathogen)' },
@@ -2342,10 +2357,59 @@ function preScreen(articleText) {
     { term: 'anopheles minimus',       reason: 'E3: Anopheles mosquito study (entomology)' },
     { term: 'antibiotic resistance',   reason: 'E2: antibiotic resistance (wrong pathogen)' },
     { term: 'antimicrobial resistance',reason: 'E2: antimicrobial resistance (wrong pathogen)' },
+    { term: 'bacterial isolate',       reason: 'E2: bacterial isolate study (wrong pathogen)' },
+    { term: 'bacterial resistance',    reason: 'E2: bacterial resistance (wrong pathogen)' },
+    { term: 'clinical bacteria',       reason: 'E2: bacterial study (wrong pathogen)' },
+    // Ophthalmology
+    { term: 'intraocular pressure',    reason: 'E2: ophthalmology (wrong disease)' },
+    { term: 'visual acuity',           reason: 'E2: ophthalmology (wrong disease)' },
+    { term: 'corneal thickness',       reason: 'E2: ophthalmology (wrong disease)' },
+    { term: 'retinoblastoma',          reason: 'E2: ophthalmology (wrong disease)' },
+    { term: 'posterior capsule',       reason: 'E2: ophthalmology (wrong disease)' },
+    // Surgery / orthopaedics
+    { term: 'arthroplasty',            reason: 'E2: orthopaedic surgery (wrong disease)' },
+    { term: 'hip replacement',         reason: 'E2: orthopaedic surgery (wrong disease)' },
+    { term: 'knee replacement',        reason: 'E2: orthopaedic surgery (wrong disease)' },
+    { term: 'appendicitis',            reason: 'E2: surgical condition (wrong disease)' },
+    { term: 'laparoscopic',            reason: 'E2: surgical condition (wrong disease)' },
+    { term: 'renal stone',             reason: 'E2: urology (wrong disease)' },
+    { term: 'urolithiasis',            reason: 'E2: urology (wrong disease)' },
+    { term: 'kidney transplant',       reason: 'E2: transplant (wrong disease)' },
+    { term: 'liver transplant',        reason: 'E2: transplant (wrong disease)' },
+    // Dental / ENT
+    { term: 'periodontal',             reason: 'E2: dental/oral health (wrong disease)' },
+    { term: 'dental caries',           reason: 'E2: dental/oral health (wrong disease)' },
+    { term: 'otorhinolaryng',          reason: 'E2: ENT (wrong disease)' },
+    // Psychiatry / neurology
+    { term: 'schizophrenia',           reason: 'E2: psychiatry (wrong disease)' },
+    { term: 'bipolar disorder',        reason: 'E2: psychiatry (wrong disease)' },
+    { term: 'alzheimer',               reason: 'E2: neurology (wrong disease)' },
+    // Obstetrics / gynaecology (non-malaria)
+    { term: 'preeclampsia',            reason: 'E2: obstetrics (wrong disease)' },
+    { term: 'pre-eclampsia',           reason: 'E2: obstetrics (wrong disease)' },
+    { term: 'caesarean',               reason: 'E2: obstetrics (wrong disease)' },
+    { term: 'cesarean',                reason: 'E2: obstetrics (wrong disease)' },
+    { term: 'uterine fibroid',         reason: 'E2: gynaecology (wrong disease)' },
+    { term: 'fibroid uterus',          reason: 'E2: gynaecology (wrong disease)' },
+    // Health systems / policy (no molecular data possible)
+    { term: 'patent medicine vendor',  reason: 'E4: drug shop/patent medicine study' },
+    { term: 'willingness to pay',      reason: 'E4: health economics (no molecular data)' },
+    { term: 'health insurance',        reason: 'E4: health financing (no molecular data)' },
+    { term: 'catastrophic expenditure',reason: 'E4: health financing (no molecular data)' },
+    { term: 'out-of-pocket payment',   reason: 'E4: health financing (no molecular data)' },
+    { term: 'community health worker', reason: 'E4: health systems (no molecular data)' },
+    { term: 'human resources for health', reason: 'E4: health systems (no molecular data)' },
+    // Imported malaria / travellers
+    { term: 'imported malaria',        reason: 'E1: imported malaria (no primary WA data)' },
+    { term: 'malaria in travell',      reason: 'E1: traveller malaria (no primary WA data)' },
+    { term: 'malaria prophylaxis for trav', reason: 'E1: traveller malaria (no primary WA data)' },
+    { term: 'returning travell',       reason: 'E1: returning traveller (no primary WA data)' },
     { term: 'drug use policy',          reason: 'E4: drug use policy study (no molecular data)' },
     { term: 'adherence to antimalarial', reason: 'E4: adherence study (no molecular data)' },
     { term: 'health-seeking',          reason: 'E4: health-seeking behaviour study' },
     { term: 'deployed to',             reason: 'E4: military deployment study' },
+    // ITN excludes removed — IPTp-SP papers mention bed nets as co-intervention but
+    // still report molecular resistance markers. Caught via manual MAYBE review instead.
     { term: 'herbal',                  reason: 'E3: herbal/plant extract study' },
     { term: 'plant extract',           reason: 'E3: plant extract study' },
     { term: 'ethnobotanical',          reason: 'E3: ethnobotanical study' },
@@ -2366,6 +2430,11 @@ function preScreen(articleText) {
     { term: 'agent-based model',       reason: 'E4: mathematical/simulation model' },
     { term: 'spatially coupled',       reason: 'E4: mathematical/simulation model' },
     { term: 'national-scale simulation', reason: 'E4: mathematical/simulation model' },
+    { term: 'mathematical model',      reason: 'E4: mathematical/simulation model' },
+    { term: 'transmission model',      reason: 'E4: mathematical/simulation model' },
+    { term: 'simulation model',        reason: 'E4: mathematical/simulation model' },
+    { term: 'non-autonomous model',    reason: 'E4: mathematical/simulation model' },
+    { term: 'malaria transmission model', reason: 'E4: mathematical/simulation model' },
     // Wrong geography — non-African (geo-conditional; absolute ones handled above)
     { term: 'malaysia',            reason: 'E1: Malaysia (not Africa)' },
     { term: 'thailand',            reason: 'E1: Thailand (not Africa)' },
@@ -2432,65 +2501,73 @@ function preScreen(articleText) {
     if (tl.includes(term)) return { verdict: 'exc', score: 0.02, reason };
   }
 
+  // Geo-exclude gating uses TITLE ONLY — so non-WA papers whose abstracts mention
+  // "West Africa" as a comparison region cannot accidentally bypass geographic exclusion.
+  const hasWestAfricaTitle = westAfrica.some(c => tl_title.includes(c));
+
   // HARD INCLUDES — West African country + explicit gene name (very high confidence)
-  const geneNames = [
+  // STRONG: specific enough — safe to match in title OR abstract
+  const strongGeneNames = [
     // Exact gene names — P. falciparum
     'pfcrt','pfmdr1','pfmdr','pfkelch13','pfkelch','kelch13','kelch 13','k13',
     'pfdhfr','pfdhps','plasmepsin','pfpm2','pfpm3','pfatpase','pfmrp','pfk13',
     'pfnhe','pfcoronin','pfubp','pfubp1','pfap2mu','pfap2-mu',
     'kelch propeller',
+    'dihydrofolate reductase','dihydropteroate synthase',
     // Exact gene names — P. vivax, P. malariae, P. ovale
     'pvdhfr','pvdhps','pvmdr1','pvkelch','pvcrt',
     'pmdhfr','pmdhps','podhfr',
-    // Antifolate resistance (dhfr/dhps context)
-    'antifolate',
-    // Quinine / mefloquine resistance
-    'quinine resistance','quinine-resistant',
-    'mefloquine resistance','mefloquine-resistant','mefloquine susceptib',
-    // Multidrug resistance
-    'multidrug resistance','multi-drug resistance','multiresistant','multidrug-resistant',
-    // Drug-resistant malaria phrases
-    'drug resistant malaria','drug-resistant malaria',
-    'resistance to antimalarial',
-    // Explicit resistance phrases strong enough to auto-include with West African country
-    'drug resistance gene','drug-resistant gene','drug resistance marker',
-    'drug resistance mutation','drug resistance profile','drug resistance profil',
-    'resistance gene pfcrt','resistance gene pfmdr','antimalarial resistance gene',
-    'molecular marker','molecular map of','molecular surveillance',
+    // Drug-class specific resistance terms (specific enough for abstract use)
     'chloroquine resistance','artemisinin resistance','sulfadoxine resistance',
     'piperaquine resistance','lumefantrine resistance','amodiaquine resistance',
-    'drug-resistant clone','drug-resistant parasit','antimalarial resistance',
+    'quinine resistance','quinine-resistant',
+    'mefloquine resistance','mefloquine-resistant','mefloquine susceptib',
+    'chloroquine-resistant','artemisinin-resistant','sulfadoxine-resistant',
+    'resistance to chloroquine','resistance to artemisinin','resistance to sulfadoxine',
+    'resistance to lumefantrine','resistance to piperaquine','resistance to quinine',
+    'resistance to antimalarial',
+    // Highly specific resistance phrases (rarely appear in unrelated abstracts)
+    'drug resistance gene','drug-resistant gene','drug resistance marker',
+    'drug resistance mutation','drug resistance profil',
+    'resistance gene pfcrt','resistance gene pfmdr','antimalarial resistance gene',
+    'molecular marker','molecular map of','molecular surveillance',
     'resistance profil','resistance genotyp','resistance haplotyp',
     'resistance allel','resistance polymorphism',
+    'resistance determinant','resistance loci',
     'surveillance of malaria drug resistance','malaria drug resistance',
-    'antimalarial drug resistance',
-    // More title phrases that strongly imply resistance marker data
-    'drug resistant biomarker','drug-resistant biomarker',
-    'resistance biomarker',
-    'molecular marker of','markers of resistance',
-    'markers of sulfadoxine','markers of chloroquine','markers of artemisinin',
-    'resistance to sulfadoxine','resistance to chloroquine','resistance to artemisinin',
-    'resistance to lumefantrine','resistance to piperaquine','resistance to quinine',
-    'chloroquine-resistant','chloroquinoresistant','chloroquino-resistant',
-    'artemisinin-resistant','sulfadoxine-resistant',
-    'drug-resistant strain','drug-resistant isolate','drug-resistant parasit',
-    'resistance determinant','resistance loci','selection on','selective sweep',
-    'treatment failure','treatment-failure','reduced susceptibility','decreased susceptibility',
-    'resistance markers','genomic evidence of selection',
-    'resistance pattern','resistance mutation',
-    'drug resistance','resistance profile',
-    // Genomic selection signatures
-    'signatures of selection','signature of selection',
+    'genomic evidence of selection','signatures of selection','signature of selection',
     'genomic regions of selection',
-    'selection pressure',
-    // Mutation-level phrases
     'resistance-associated mutation','drug resistance-associated',
     'drug resistant polymorphism','drug-resistant polymorphism',
-    // Additional high-confidence phrases
-    'efficacy and resistance','efficacy and selection',
     'selection of pfcrt','selection of pfmdr',
+    'drug resistant biomarker','drug-resistant biomarker','resistance biomarker',
+    'molecular marker of','markers of resistance',
+    'markers of sulfadoxine','markers of chloroquine','markers of artemisinin',
+    'chloroquinoresistant','chloroquino-resistant',
+    'drug-resistant clone',
+    'drug-resistant strain','drug-resistant isolate',
+    'drug resistant malaria','drug-resistant malaria',
+    'antimalarial resistance',
+    'malaria drug resistance',
+    // 'antimalarial drug resistance' moved to weakGeneNames — too generic as abstract background
+    'multidrug-resistant plasmodium','multidrug resistant plasmodium',
+  ];
+  // WEAK: too generic — checked in TITLE ONLY (commonly appear as background in unrelated abstracts)
+  const weakGeneNames = [
+    'antifolate',          // appears as drug class background in non-resistance papers
+    'drug-resistant parasit', // matches model paper abstracts
+    'drug resistance','resistance profile','resistance pattern','resistance mutation',
+    'resistance markers',
+    'multidrug resistance','multi-drug resistance','multiresistant','multidrug-resistant',
+    'treatment failure','treatment-failure',
+    'reduced susceptibility','decreased susceptibility',
+    'selection on','selective sweep','selection pressure',
+    'efficacy and resistance','efficacy and selection',
+    'development of resistance',
+    'antimalarial drug resistance',
   ];
 
+  // hasWestAfrica (full text) used for auto-include and MAYBE reason
   const hasWestAfrica = westAfrica.some(c => tl.includes(c));
 
   // Non-geographic hard excludes ALWAYS win
@@ -2501,9 +2578,9 @@ function preScreen(articleText) {
     }
   }
 
-  // Geographic hard excludes only fire if NO West African country is present
-  // e.g. "Within-host competition...Angola, Ghana, Tanzania" → Ghana saves it
-  if (!hasWestAfrica) {
+  // Geographic hard excludes only fire if NO West African country is in the TITLE
+  // (using title-only to prevent abstracts mentioning "West Africa" as comparison from bypassing exclusion)
+  if (!hasWestAfricaTitle) {
     const geoExcludes = hardExcludes.filter(e => e.reason.startsWith('E1:'));
     for (const { term, reason } of geoExcludes) {
       if (tl.includes(term)) {
@@ -2516,12 +2593,16 @@ function preScreen(articleText) {
   // Only reached if no hard exclude matched
   if (hasWestAfrica) {
     // If title is primarily about Anopheles mosquitoes, downgrade to MAYBE even with resistance terms
-    const isAnophelesPaper = tl.includes('anopheles') && 
-      (tl.includes('mosquito') || tl.includes('vector') || tl.includes('entomolog') || 
+    const isAnophelesPaper = tl.includes('anopheles') &&
+      (tl.includes('mosquito') || tl.includes('vector') || tl.includes('entomolog') ||
        tl.includes('gambiae') || tl.includes('funestus') || tl.includes('coluzzii') ||
        tl.includes('arabiensis') || tl.includes('population genetic') && tl.includes('anopheles'));
-    
-    const matchedGene = geneNames.find(g => tl.includes(g));
+
+    // STRONG: match in full text (title + abstract) — specific enough to be safe
+    let matchedGene = strongGeneNames.find(g => tl.includes(g));
+    // WEAK: match in TITLE ONLY — too broad for abstract-level matching
+    if (!matchedGene) matchedGene = weakGeneNames.find(g => tl_title.includes(g));
+
     if (matchedGene && !isAnophelesPaper) {
       const country = westAfrica.find(c => tl.includes(c));
       return { verdict: 'inc', score: 0.95, reason: 'I2+I3: ' + matchedGene + ' + ' + country + ' in title' };
@@ -2630,7 +2711,7 @@ async function predictBatch(stage) {
     if (btn) btn.textContent = `⏳ ${done}/${total} · ${delay/1000}s · click to stop`;
 
     // Pre-screen with JS first — uses title + abstract for maximum coverage
-    const preResult = preScreen((rec.title || '') + ' ' + (rec.abstract || ''));
+    const preResult = preScreen(rec.title || '', rec.abstract || '');
     if (preResult) {
       rec.prediction = preResult;
       done++;
@@ -2806,7 +2887,7 @@ function runPreScreenAll() {
   let inc = 0, exc = 0, maybe = 0;
 
   unpredicted.forEach(rec => {
-    const result = preScreen((rec.title || '') + ' ' + (rec.abstract || ''));
+    const result = preScreen(rec.title || '', rec.abstract || '');
     rec.prediction = result;
     if (result.verdict === 'inc') inc++;
     else if (result.verdict === 'exc') exc++;
