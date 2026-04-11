@@ -979,7 +979,7 @@
         <select id="list-reason-filter" onchange="renderTitleList()" style="font-family:var(--mono);font-size:11px;padding:6px 10px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);border-radius:4px;max-width:260px">
           <option value="">All reasons</option>
           <option value="West African country in title">WA country — no molecular term</option>
-          <option value="No definitive geography">No geography or marker</option>
+          <option value="E1/E8">E1/E8: No WA geography</option>
           <option value="I2+I3">Auto-include (I2+I3)</option>
           <option value="Hard exclude">Hard exclude</option>
           <option value="E1:">E1: Wrong geography</option>
@@ -1011,22 +1011,88 @@
 
   <!-- ABSTRACT PANEL -->
   <div class="panel" id="panel-abstract">
-    <div class="info-box">
-      <strong>Abstract screening:</strong> Records with title decision Include or Maybe. Make final Include/Exclude/Maybe decisions with exclusion reasons if excluding.
+    <!-- FLASHCARD VIEW -->
+    <div id="abstract-flashcard-view">
+      <div class="flashcard-layout">
+        <div class="flashcard-main">
+          <div class="flashcard-progress-wrap">
+            <div class="flashcard-progress-bar"><div class="flashcard-progress-fill" id="ab-progress-fill"></div></div>
+            <div class="flashcard-progress-label" id="ab-progress-label">0 / 0</div>
+          </div>
+          <div class="flashcard" id="ab-card">
+            <div class="fc-num" id="ab-num">#0001</div>
+            <div class="fc-title" id="ab-title">Loading...</div>
+            <div class="fc-meta" id="ab-meta"></div>
+            <div id="ab-abstract" style="font-size:13px;line-height:1.7;color:var(--text2);margin-top:12px;max-height:340px;overflow-y:auto;padding-right:4px"></div>
+            <div id="ab-links" style="margin-top:10px;display:flex;gap:10px"></div>
+            <div id="ab-reasons" style="display:none;margin-top:12px;flex-wrap:wrap;gap:6px"></div>
+          </div>
+          <div class="flashcard-keys">
+            <div class="key-hint key-exc" onclick="abDecide('exc')"><span class="key-badge">A</span> Exclude</div>
+            <div class="key-hint key-maybe" onclick="abDecide('maybe')"><span class="key-badge">W</span> Maybe</div>
+            <div class="key-hint key-inc" onclick="abDecide('inc')"><span class="key-badge">D</span> Include</div>
+          </div>
+          <div class="flashcard-actions">
+            <button class="btn btn-ghost" style="font-size:11px" onclick="abUndo()">↩ Undo <span style="opacity:.5;font-size:9px">Z</span></button>
+            <button class="btn btn-ghost" style="font-size:11px" onclick="abJumpNextUndecided()">⏭ Next Undecided <span style="opacity:.5;font-size:9px">S</span></button>
+            <button class="btn btn-ghost" style="font-size:11px" onclick="abTogglePendingOnly()">⊙ Pending Only <span style="opacity:.5;font-size:9px">P</span></button>
+            <button class="btn btn-ghost" style="font-size:11px" onclick="abToggleListView()">☰ List View</button>
+          </div>
+        </div>
+        <div class="flashcard-sidebar" id="ab-sidebar">
+          <div class="sidebar-header">
+            <div class="sidebar-filters">
+              <button class="filter-btn active-all" id="af-all" onclick="abSetFilter('all')">All</button>
+              <button class="filter-btn" id="af-pending" onclick="abSetFilter('pending')">Pending</button>
+              <button class="filter-btn" id="af-inc" onclick="abSetFilter('inc')">Inc</button>
+              <button class="filter-btn" id="af-exc" onclick="abSetFilter('exc')">Exc</button>
+              <button class="filter-btn" id="af-maybe" onclick="abSetFilter('maybe')">Maybe</button>
+            </div>
+            <input class="search-box" id="abstract-search" placeholder="Search..." oninput="abRenderSidebar()" style="font-size:11px;padding:6px 10px;margin-top:6px">
+          </div>
+          <div class="sidebar-list" id="ab-sidebar-list"></div>
+          <div class="sidebar-footer">
+            <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap">
+              <button class="brush-btn brush-inc" style="font-size:9px;padding:4px 8px" onclick="setBrush('inc')">🖌 Inc</button>
+              <button class="brush-btn brush-exc" style="font-size:9px;padding:4px 8px" onclick="setBrush('exc')">🖌 Exc</button>
+              <button class="brush-btn brush-maybe" style="font-size:9px;padding:4px 8px" onclick="setBrush('maybe')">🖌 Maybe</button>
+              <button class="brush-btn brush-clear" style="font-size:9px;padding:4px 8px" onclick="setBrush(null)">✕</button>
+            </div>
+            <button class="btn btn-ghost" style="font-size:10px;width:100%;margin-bottom:6px" onclick="abToggleListView()">☰ Full List View</button>
+            <button class="btn btn-ghost" style="font-size:10px;width:100%" onclick="exportCSV('final')">⬇ Export Results</button>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="list-controls">
-      <input class="search-box" id="abstract-search" placeholder="Search..." oninput="renderList('abstract')">
-      <button class="filter-btn active-all" id="af-all" onclick="setFilter('abstract','all')">All</button>
-      <button class="filter-btn" id="af-pending" onclick="setFilter('abstract','pending')">Pending</button>
-      <button class="filter-btn" id="af-inc" onclick="setFilter('abstract','inc')">Included</button>
-      <button class="filter-btn" id="af-exc" onclick="setFilter('abstract','exc')">Excluded</button>
-      <button class="filter-btn" id="af-maybe" onclick="setFilter('abstract','maybe')">Maybe</button>
-      <button class="predict-panel-btn" id="btn-predict-batch-abstract" onclick="predictBatch('abstract')">✦ Predict All</button>
-    </div>
-    <div id="abstract-list"></div>
-    <div style="margin-top:16px;display:flex;gap:10px">
-      <button class="btn btn-ghost" onclick="exportCSV('final')">Export Final Results</button>
-      <button class="btn btn-ghost" onclick="exportCSV('all')">Export All Decisions</button>
+    <!-- LIST VIEW -->
+    <div id="abstract-list-view" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="font-size:11px" onclick="abToggleListView()">← Back to Flashcard</button>
+        <input class="search-box" id="abstract-list-search" placeholder="Search..." oninput="renderAbstractList()" style="flex:1;min-width:140px">
+        <button class="filter-btn active-all" id="afl-all" onclick="abListSetFilter('all')">All</button>
+        <button class="filter-btn" id="afl-pending" onclick="abListSetFilter('pending')">Pending</button>
+        <button class="filter-btn" id="afl-inc" onclick="abListSetFilter('inc')">Included</button>
+        <button class="filter-btn" id="afl-exc" onclick="abListSetFilter('exc')">Excluded</button>
+        <button class="filter-btn" id="afl-maybe" onclick="abListSetFilter('maybe')">Maybe</button>
+        <select id="ab-list-page-size" onchange="renderAbstractList()" style="font-family:var(--mono);font-size:11px;padding:6px 10px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);border-radius:4px">
+          <option value="25">25 per page</option>
+          <option value="50" selected>50 per page</option>
+          <option value="100">100 per page</option>
+        </select>
+      </div>
+      <div class="brush-toolbar">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.06em">PAINTBRUSH</span>
+        <button class="brush-btn brush-inc" onclick="setBrush('inc')">🖌 Include</button>
+        <button class="brush-btn brush-exc" onclick="setBrush('exc')">🖌 Exclude</button>
+        <button class="brush-btn brush-maybe" onclick="setBrush('maybe')">🖌 Maybe</button>
+        <button class="brush-btn brush-clear" onclick="setBrush(null)">✕ Off</button>
+      </div>
+      <div id="ab-list-pages" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
+      <div id="abstract-list"></div>
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <button class="btn btn-ghost" onclick="exportCSV('final')">Export Final Results</button>
+        <button class="btn btn-ghost" onclick="exportCSV('all')">Export All Decisions</button>
+      </div>
     </div>
   </div>
 
@@ -1849,7 +1915,29 @@ function renderTitleList() {
   const slice = recs.slice(fcListPage * pageSize, (fcListPage + 1) * pageSize);
   const container = document.getElementById('title-list');
   if (!container) return;
-  container.innerHTML = slice.map((rec, i) => buildRecordHTML(rec, fcListPage * pageSize + i, 'title')).join('');
+  let headerHTML = '';
+  const reasonFilter = document.getElementById('list-reason-filter')?.value || '';
+  if (filters.title === 'inc' && !reasonFilter) {
+    const cats = {};
+    recs.forEach(r => {
+      const reason = r.prediction?.reason || '';
+      let cat = 'Other';
+      if (reason.startsWith('I2+I3: ')) {
+        const rest = reason.replace('I2+I3: ', '');
+        const plusIdx = rest.indexOf(' + ');
+        cat = plusIdx > 0 ? rest.substring(0, plusIdx) : rest;
+      }
+      cats[cat] = (cats[cat] || 0) + 1;
+    });
+    const sorted = Object.entries(cats).sort((a,b) => b[1]-a[1]);
+    headerHTML = '<div style="margin-bottom:16px;padding:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px">' +
+      '<div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;margin-bottom:10px">AUTO-INCLUDE CATEGORIES · ' + recs.length + ' total</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+      sorted.map(([cat,n]) => '<button class="reason-chip" onclick="document.getElementById(\'list-reason-filter\').value=' + JSON.stringify(cat) + ';fcListPage=0;renderTitleList()">' +
+        '<span style="color:var(--inc)">' + cat + '</span> <span style="opacity:.6">· ' + n + '</span></button>').join('') +
+      '</div></div>';
+  }
+  container.innerHTML = headerHTML + slice.map((rec, i) => buildRecordHTML(rec, fcListPage * pageSize + i, 'title')).join('');
 }
 
 // Keyboard shortcuts for flashcard
@@ -1857,8 +1945,19 @@ document.addEventListener('keydown', function(e) {
   // Global shortcuts — work from any tab
   if (e.ctrlKey && e.shiftKey && e.key === 'P') { e.preventDefault(); runPreScreenAll(); return; }
   if (e.ctrlKey && e.shiftKey && e.key === 'A') { e.preventDefault(); applyPreScreenDecisions(); return; }
-  if (activeTab !== 'title' || fcListMode) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (activeTab === 'abstract' && abFcMode) {
+    if (e.key === 'a' || e.key === 'A') { e.preventDefault(); abDecide('exc'); return; }
+    if (e.key === 'd' || e.key === 'D') { e.preventDefault(); abDecide('inc'); return; }
+    if (e.key === 'w' || e.key === 'W') { e.preventDefault(); abDecide('maybe'); return; }
+    if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); abUndo(); return; }
+    if (e.key === 's' || e.key === 'S') { e.preventDefault(); abJumpNextUndecided(); return; }
+    if (e.key === 'p' || e.key === 'P') { e.preventDefault(); abTogglePendingOnly(); return; }
+    if (e.key === 'Enter')      { e.preventDefault(); abAdvance(); return; }
+    if (e.key === 'ArrowRight') { abFcIndex = Math.min(abFcIndex+1,abFcRecords.length-1); abRenderCard(); abRenderSidebar(); return; }
+    if (e.key === 'ArrowLeft')  { abFcIndex = Math.max(abFcIndex-1,0); abRenderCard(); abRenderSidebar(); return; }
+  }
+  if (activeTab !== 'title' || fcListMode) return;
   if (e.key === 'a' || e.key === 'A') fcDecide('exc');
   if (e.key === 'd' || e.key === 'D') fcDecide('inc');
   if (e.key === 'w' || e.key === 'W') fcDecide('maybe');
@@ -1949,7 +2048,7 @@ function switchTab(tab) {
   badge.textContent = labels[tab];
   
   if (tab === 'title') fcInit();
-  if (tab === 'abstract') renderList('abstract');
+  if (tab === 'abstract') abInit();
   if (tab === 'prisma') renderPrisma();
   updateStats();
 }
@@ -2065,6 +2164,223 @@ function buildRecordHTML(rec, i, stage) {
       <div class="decision-controls" id="dec-${rec.id}-${stage}">${decBtns}</div>
     </div>
   </div>`;
+}
+
+// ============================================================
+// ABSTRACT FLASHCARD SYSTEM
+// ============================================================
+let abFcMode = true;
+let abFcIndex = 0;
+let abFcRecords = [];
+let abFcPendingOnly = false;
+let abFilter = 'all';
+let abListFilterState = 'all';
+let abListPage = 0;
+
+function abGetRecords() {
+  let base = records.filter(r => !r.isDuplicate && (r.titleDecision === 'inc' || r.titleDecision === 'maybe'));
+  const q = (document.getElementById('abstract-search')?.value || '').toLowerCase();
+  if (q) base = base.filter(r => (r.title||'').toLowerCase().includes(q) || (r.abstract||'').toLowerCase().includes(q));
+  if (abFilter === 'pending') return base.filter(r => !r.abstractDecision);
+  if (abFilter === 'inc')     return base.filter(r => r.abstractDecision === 'inc');
+  if (abFilter === 'exc')     return base.filter(r => r.abstractDecision === 'exc');
+  if (abFilter === 'maybe')   return base.filter(r => r.abstractDecision === 'maybe');
+  return base;
+}
+
+function abInit() {
+  abFcRecords = abGetRecords();
+  const firstPending = abFcRecords.findIndex(r => !r.abstractDecision);
+  abFcIndex = firstPending >= 0 ? firstPending : 0;
+  abRenderCard();
+  abRenderSidebar();
+}
+
+function abRenderCard() {
+  const total = abFcRecords.length;
+  const decided = abFcRecords.filter(r => r.abstractDecision).length;
+  const pct = total > 0 ? (decided / total) * 100 : 0;
+  const fill = document.getElementById('ab-progress-fill');
+  const lbl  = document.getElementById('ab-progress-label');
+  if (fill) fill.style.width = pct + '%';
+  if (lbl)  lbl.textContent = decided + ' / ' + total;
+  if (!abFcRecords.length) {
+    const t = document.getElementById('ab-title'); if (t) t.textContent = 'No records to show';
+    return;
+  }
+  if (abFcIndex >= abFcRecords.length) abFcIndex = abFcRecords.length - 1;
+  if (abFcIndex < 0) abFcIndex = 0;
+  const rec = abFcRecords[abFcIndex];
+  const dec = rec.abstractDecision;
+  document.getElementById('ab-num').textContent = '#' + String(abFcIndex + 1).padStart(4, '0') + ' · ' + rec.source.toUpperCase();
+  const resistanceWords = ['resistance','resistant','mutation','polymorphism','genotype','allele','haplotype','pfcrt','pfmdr','kelch','pfdhfr','pfdhps','plasmepsin','molecular marker','chloroquine','artemisinin','sulfadoxine'];
+  function hlText(txt) {
+    let s = (txt||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    resistanceWords.forEach(w => { s = s.replace(new RegExp('(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi'), '<mark style="background:rgba(79,142,247,0.25);color:var(--text);border-radius:2px;padding:0 2px">$1</mark>'); });
+    return s;
+  }
+  document.getElementById('ab-title').innerHTML = hlText(rec.title);
+  let metaHTML = '';
+  if (rec.year) metaHTML += '<span class="meta-tag meta-year">' + rec.year + '</span>';
+  if (rec.journal) metaHTML += '<span class="meta-tag" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (rec.journal||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) + '</span>';
+  if (dec) metaHTML += '<span class="decision-badge badge-' + dec + '">' + dec.toUpperCase() + '</span>';
+  if (rec.abstractReason) metaHTML += '<span class="meta-tag" style="background:var(--exc-bg);color:var(--exc);border:1px solid #4a1a18">' + rec.abstractReason + '</span>';
+  document.getElementById('ab-meta').innerHTML = metaHTML;
+  const absEl = document.getElementById('ab-abstract');
+  if (absEl) absEl.innerHTML = rec.abstract ? hlText(rec.abstract) : '<em style="color:var(--text3)">No abstract available.</em>';
+  const linksEl = document.getElementById('ab-links');
+  if (linksEl) {
+    const lks = [];
+    if (rec.doi)  lks.push('<a href="https://doi.org/' + rec.doi + '" target="_blank" style="color:var(--accent);font-family:var(--mono);font-size:11px;text-decoration:none">DOI →</a>');
+    if (rec.pmid) lks.push('<a href="https://pubmed.ncbi.nlm.nih.gov/' + rec.pmid + '" target="_blank" style="color:var(--accent);font-family:var(--mono);font-size:11px;text-decoration:none">PubMed →</a>');
+    linksEl.innerHTML = lks.join('');
+  }
+  const card = document.getElementById('ab-card');
+  if (card) card.className = 'flashcard' + (dec ? ' flash-' + dec : '');
+  abShowReasons(dec === 'exc');
+  document.querySelectorAll('#ab-sidebar-list .sidebar-item').forEach(el => el.classList.toggle('active', el.dataset.id === rec.id));
+}
+
+function abShowReasons(show) {
+  const el = document.getElementById('ab-reasons');
+  if (!el) return;
+  if (!show) { el.style.display = 'none'; return; }
+  const rec = abFcRecords[abFcIndex];
+  if (!rec) return;
+  const cur = rec.abstractReason;
+  el.style.display = 'flex';
+  el.innerHTML = EXCLUSION_REASONS.map(r =>
+    '<button class="reason-chip ' + (cur === r.code ? 'selected' : '') + '" onclick="abSetReason(\'' + r.code + '\')">' + r.code + ': ' + r.label + '</button>'
+  ).join('') + '<button class="btn btn-ghost" style="font-size:10px;margin-left:8px" onclick="abAdvance()">Next → <span style="opacity:.5;font-size:9px">Enter</span></button>';
+}
+
+function abSetReason(code) {
+  const rec = abFcRecords[abFcIndex];
+  if (!rec) return;
+  rec.abstractReason = rec.abstractReason === code ? null : code;
+  save();
+  abShowReasons(true);
+  abRenderSidebar();
+}
+
+function abDecide(dec) {
+  if (!abFcRecords.length) return;
+  const rec = abFcRecords[abFcIndex];
+  rec.abstractDecision = dec;
+  if (dec !== 'exc') rec.abstractReason = null;
+  save(); updateStats();
+  if (dec === 'exc') { abRenderCard(); return; }
+  const card = document.getElementById('ab-card');
+  const flyClass = dec === 'inc' ? 'fc-fly-right' : 'fc-fly-up';
+  const inClass  = dec === 'inc' ? 'fc-in-right'  : 'fc-in-down';
+  if (card) card.classList.add(flyClass);
+  setTimeout(() => {
+    if (abFcPendingOnly) { abFcRecords = abGetRecords(); if (abFcIndex >= abFcRecords.length) abFcIndex = Math.max(0, abFcRecords.length - 1); }
+    else { abFcIndex = Math.min(abFcIndex + 1, abFcRecords.length - 1); }
+    const c = document.getElementById('ab-card');
+    if (c) c.className = 'flashcard ' + inClass;
+    abRenderCard(); abRenderSidebar();
+    setTimeout(() => { const c2 = document.getElementById('ab-card'); if (c2) c2.classList.remove(inClass); }, 250);
+  }, 260);
+}
+
+function abAdvance() {
+  const card = document.getElementById('ab-card');
+  if (card) card.classList.add('fc-fly-left');
+  setTimeout(() => {
+    if (abFcPendingOnly) { abFcRecords = abGetRecords(); if (abFcIndex >= abFcRecords.length) abFcIndex = Math.max(0, abFcRecords.length - 1); }
+    else { abFcIndex = Math.min(abFcIndex + 1, abFcRecords.length - 1); }
+    const c = document.getElementById('ab-card');
+    if (c) c.className = 'flashcard fc-in-left';
+    abRenderCard(); abRenderSidebar();
+    setTimeout(() => { const c2 = document.getElementById('ab-card'); if (c2) c2.classList.remove('fc-in-left'); }, 250);
+  }, 260);
+}
+
+function abUndo() {
+  const rec = abFcRecords[abFcIndex];
+  if (!rec) return;
+  rec.abstractDecision = null; rec.abstractReason = null;
+  save(); updateStats(); abRenderCard(); abRenderSidebar();
+}
+
+function abJumpNextUndecided() {
+  const next = abFcRecords.findIndex((r, i) => i > abFcIndex && !r.abstractDecision);
+  if (next >= 0) { abFcIndex = next; abRenderCard(); abRenderSidebar(); }
+}
+
+function abTogglePendingOnly() {
+  abFcPendingOnly = !abFcPendingOnly;
+  if (abFcPendingOnly) { abFcRecords = abGetRecords().filter(r => !r.abstractDecision); } else { abFcRecords = abGetRecords(); }
+  abFcIndex = 0; abRenderCard(); abRenderSidebar();
+}
+
+function abSetFilter(f) {
+  abFilter = f;
+  ['all','pending','inc','exc','maybe'].forEach(k => {
+    const el = document.getElementById('af-' + k);
+    if (el) el.className = 'filter-btn' + (k === f ? ' active-' + k : '');
+  });
+  abFcRecords = abGetRecords(); abFcIndex = 0; abRenderCard(); abRenderSidebar();
+}
+
+function abRenderSidebar() {
+  const list = document.getElementById('ab-sidebar-list');
+  if (!list) return;
+  const recs = abFcRecords;
+  const start = Math.max(0, abFcIndex - 10);
+  const end   = Math.min(recs.length, abFcIndex + 70);
+  list.innerHTML = recs.slice(start, end).map((r, idx) => {
+    const dec = r.abstractDecision;
+    const active = (start + idx) === abFcIndex ? ' active' : '';
+    return '<div class="sidebar-item si-' + (dec||'none') + active + '" data-id="' + r.id + '" onclick="abFcIndex=' + (start+idx) + ';abRenderCard();abRenderSidebar()">' +
+      '<div class="si-title">' + (r.title||'') + '</div>' +
+      '<div style="display:flex;gap:4px;margin-top:2px">' +
+      (r.year ? '<span class="meta-tag meta-year" style="font-size:9px;padding:1px 4px">' + r.year + '</span>' : '') +
+      (dec ? '<span class="decision-badge badge-' + dec + '" style="font-size:9px;padding:1px 5px">' + dec.toUpperCase() + '</span>' : '') +
+      '</div></div>';
+  }).join('');
+}
+
+function abToggleListView() {
+  abFcMode = !abFcMode;
+  document.getElementById('abstract-flashcard-view').style.display = abFcMode ? '' : 'none';
+  document.getElementById('abstract-list-view').style.display = abFcMode ? 'none' : '';
+  if (!abFcMode) renderAbstractList();
+}
+
+function abListSetFilter(f) {
+  abListFilterState = f;
+  abListPage = 0;
+  ['all','pending','inc','exc','maybe'].forEach(k => {
+    const el = document.getElementById('afl-' + k);
+    if (el) el.className = 'filter-btn' + (k === f ? ' active-' + k : '');
+  });
+  renderAbstractList();
+}
+
+function renderAbstractList() {
+  const q = (document.getElementById('abstract-list-search')?.value || '').toLowerCase();
+  const pageSize = parseInt(document.getElementById('ab-list-page-size')?.value || '50');
+  let recs = records.filter(r => !r.isDuplicate && (r.titleDecision === 'inc' || r.titleDecision === 'maybe'));
+  if (q) recs = recs.filter(r => (r.title||'').toLowerCase().includes(q) || (r.abstract||'').toLowerCase().includes(q));
+  if (abListFilterState === 'pending') recs = recs.filter(r => !r.abstractDecision);
+  if (abListFilterState === 'inc')     recs = recs.filter(r => r.abstractDecision === 'inc');
+  if (abListFilterState === 'exc')     recs = recs.filter(r => r.abstractDecision === 'exc');
+  if (abListFilterState === 'maybe')   recs = recs.filter(r => r.abstractDecision === 'maybe');
+  const totalPages = Math.ceil(recs.length / pageSize);
+  if (abListPage >= totalPages) abListPage = 0;
+  const pageContainer = document.getElementById('ab-list-pages');
+  if (pageContainer) {
+    let btns = '';
+    for (let i = 0; i < totalPages; i++) btns += '<button class="page-btn ' + (i === abListPage ? 'active' : '') + '" onclick="abListPage=' + i + ';renderAbstractList()">' + (i+1) + '</button>';
+    pageContainer.innerHTML = btns;
+  }
+  const slice = recs.slice(abListPage * pageSize, (abListPage + 1) * pageSize);
+  const container = document.getElementById('abstract-list');
+  if (!container) return;
+  if (!slice.length) { container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-title">No records to show</div></div>'; return; }
+  container.innerHTML = slice.map((rec, i) => buildRecordHTML(rec, abListPage * pageSize + i, 'abstract')).join('');
 }
 
 function isPreScreened(pred) {
@@ -2275,11 +2591,51 @@ function preScreen(title, abstract = '') {
   const tl_title = title.toLowerCase();
   const tl = (title + (abstract ? ' ' + abstract : '')).toLowerCase();
 
-  const westAfrica = ['nigeria','ghana','senegal','mali','burkina faso','benin','togo','niger',
+  const westAfrica = [
+    // Countries
+    'nigeria','ghana','senegal','mali','burkina faso','benin','togo','niger',
     'cameroon','guinea','liberia','sierra leone','gambia','mauritania','cabo verde','cape verde',
     'guinea-bissau','ivory coast',"cote d'ivoire",'cote divoire','equatorial guinea','chad',
-    // Broad regional terms that include West Africa
-    'west africa','western africa','west african','sahel','ecowas'];
+    // Regional terms
+    'west africa','western africa','west african','sahel','ecowas',
+    // Major cities — papers often name the city without the country
+    // Nigeria
+    'lagos','ibadan','abuja','kano','kaduna','zaria','enugu','port harcourt',
+    'owerri','abeokuta','ilorin','maiduguri','sokoto','jos','benin city',
+    'calabar','makurdi','bauchi','yola','abakaliki',
+    // Ghana
+    'accra','kumasi','cape coast','tamale','bolgatanga','sunyani','wa ghana',
+    // Senegal
+    'dakar','thies','saint-louis','ziguinchor','dielmo','ndiop',
+    // Mali
+    'bamako','sikasso','mopti','segou','kayes','timbuktu','gao',
+    // Burkina Faso
+    'ouagadougou','bobo-dioulasso','ouahigouya','banfora','koudougou',
+    // Cameroon
+    'yaounde','yaoundé','douala','ngaoundere','ngaoundéré','garoua','bafoussam',
+    // Côte d'Ivoire
+    'abidjan','bouaké','bouake','yamoussoukro',
+    // Guinea
+    'conakry','kankan','nzerekore',
+    // Sierra Leone
+    'freetown','kenema','makeni',
+    // Liberia
+    'monrovia','gbarnga',
+    // Gambia
+    'banjul','serekunda','farafenni','basse santa su',
+    // Niger
+    'niamey','zinder','maradi','agadez',
+    // Togo
+    'lome','lomé','kara',
+    // Benin
+    'cotonou','porto-novo','parakou',
+    // Guinea-Bissau
+    'bissau',
+    // Chad
+    'ndjamena',"n'djamena",
+    // Mauritania
+    'nouakchott',
+  ];
 
   // HARD EXCLUDES — always exclude, no exceptions
   const hardExcludes = [
@@ -2318,7 +2674,8 @@ function preScreen(title, abstract = '') {
     { term: 'a review on',          reason: 'E4: review article' },
     { term: 'information dissemination', reason: 'E4: information dissemination study (no molecular data)' },
     { term: 'health information',   reason: 'E4: health information study (no molecular data)' },
-    { term: 'physicochemical',      reason: 'E4: pharmaceutical quality study (no molecular data)' },
+    { term: 'physicochemical equivalence',       reason: 'E4: pharmaceutical quality study (no molecular data)' },
+    { term: 'physicochemical characterization', reason: 'E4: pharmaceutical quality study (no molecular data)' },
     { term: 'substandard',          reason: 'E4: medicine quality study (not primary resistance data)' },
     { term: 'falsified medicine',   reason: 'E4: medicine quality study (not primary resistance data)' },
     { term: 'counterfeit',          reason: 'E4: counterfeit medicine study (not resistance data)' },
@@ -2412,6 +2769,12 @@ function preScreen(title, abstract = '') {
     // still report molecular resistance markers. Caught via manual MAYBE review instead.
     { term: 'herbal',                  reason: 'E3: herbal/plant extract study' },
     { term: 'plant extract',           reason: 'E3: plant extract study' },
+    { term: 'leaf extract',            reason: 'E3: plant extract study' },
+    { term: 'ethanolic extract',       reason: 'E3: plant extract study' },
+    { term: 'methanolic extract',      reason: 'E3: plant extract study' },
+    { term: 'methanol extract',        reason: 'E3: plant extract study' },
+    { term: 'aqueous extract',         reason: 'E3: plant extract study' },
+    { term: 'crude extract',           reason: 'E3: plant extract study' },
     { term: 'ethnobotanical',          reason: 'E3: ethnobotanical study' },
     { term: 'medicinal plant',         reason: 'E3: medicinal plant study' },
     { term: 'yoelii',                  reason: 'E3: rodent malaria model (P. yoelii)' },
@@ -2435,6 +2798,49 @@ function preScreen(title, abstract = '') {
     { term: 'simulation model',        reason: 'E4: mathematical/simulation model' },
     { term: 'non-autonomous model',    reason: 'E4: mathematical/simulation model' },
     { term: 'malaria transmission model', reason: 'E4: mathematical/simulation model' },
+    // More wrong disease
+    { term: 'burn wound',           reason: 'E2: burns/trauma (wrong disease)' },
+    { term: 'burn injury',          reason: 'E2: burns/trauma (wrong disease)' },
+    { term: 'sperm quality',        reason: 'E2: reproductive medicine (wrong disease)' },
+    { term: 'spermatogenesis',      reason: 'E2: reproductive medicine (wrong disease)' },
+    { term: 'spinal cord',          reason: 'E2: neurology/orthopaedics (wrong disease)' },
+    { term: 'neonatal jaundice',    reason: 'E2: neonatal medicine (wrong disease)' },
+    { term: 'otitis media',         reason: 'E2: ENT (wrong disease)' },
+    { term: 'rhinosinusitis',       reason: 'E2: ENT (wrong disease)' },
+    { term: 'tonsillectomy',        reason: 'E2: ENT surgery (wrong disease)' },
+    { term: 'thyroid',              reason: 'E2: endocrinology (wrong disease)' },
+    { term: 'gallstone',            reason: 'E2: gastrointestinal (wrong disease)' },
+    { term: 'cholecystitis',        reason: 'E2: gastrointestinal (wrong disease)' },
+    { term: 'hernia ',              reason: 'E2: surgical (wrong disease)' },
+    { term: 'hip fracture',         reason: 'E2: orthopaedic (wrong disease)' },
+    { term: 'femur fracture',       reason: 'E2: orthopaedic (wrong disease)' },
+    { term: 'birth asphyxia',       reason: 'E2: neonatal (wrong disease)' },
+    { term: 'safe childbirth',      reason: 'E2: obstetrics/childbirth (wrong disease)' },
+    { term: 'skilled birth attendant', reason: 'E2: obstetrics (wrong disease)' },
+    { term: 'family planning',      reason: 'E2: reproductive health (wrong disease)' },
+    { term: 'contraceptive',        reason: 'E2: reproductive health (wrong disease)' },
+    { term: 'breastfeeding',        reason: 'E2: infant nutrition (wrong disease)' },
+    { term: 'exclusive breastfeed', reason: 'E2: infant nutrition (wrong disease)' },
+    { term: 'complementary feeding',reason: 'E2: infant nutrition (wrong disease)' },
+    // French-language wrong-disease terms
+    { term: 'carcinome',            reason: 'E2: carcinoma (wrong disease — French term)' },
+    { term: 'lymphome',             reason: 'E2: lymphoma (wrong disease — French term)' },
+    { term: 'sarcome',              reason: 'E2: sarcoma (wrong disease — French term)' },
+    { term: 'glaucome',             reason: 'E2: glaucoma (wrong disease — French term)' },
+    { term: 'paralysie cérébrale',  reason: 'E2: cerebral palsy (wrong disease — French term)' },
+    { term: 'cellulite diffuse',    reason: 'E2: soft tissue cellulitis (wrong disease — French term)' },
+    // Missing wrong pathogens
+    { term: 'lassa fever',          reason: 'E2: Lassa fever (wrong pathogen)' },
+    { term: 'onchocerciasis',       reason: 'E2: onchocerciasis/river blindness (wrong pathogen)' },
+    { term: 'onchocercose',         reason: 'E2: onchocerciasis (wrong pathogen — French term)' },
+    { term: 'sleeping sickness',    reason: 'E2: sleeping sickness/trypanosomiasis (wrong pathogen)' },
+    { term: 'maladie du sommeil',   reason: 'E2: sleeping sickness (wrong pathogen — French term)' },
+    // Missed in silico variant
+    { term: 'in-silico',            reason: 'E3: in silico/computational study' },
+    // Missed health systems
+    { term: 'disaster preparedness',reason: 'E4: disaster preparedness study (no molecular data)' },
+    { term: 'hospital safety index',reason: 'E4: health systems (no molecular data)' },
+    { term: 'port moresby',         reason: 'E1: Papua New Guinea/Pacific (not West Africa)' },
     // Wrong geography — non-African (geo-conditional; absolute ones handled above)
     { term: 'malaysia',            reason: 'E1: Malaysia (not Africa)' },
     { term: 'thailand',            reason: 'E1: Thailand (not Africa)' },
@@ -2454,6 +2860,16 @@ function preScreen(title, abstract = '') {
     { term: 'sri lanka',           reason: 'E1: Sri Lanka (not Africa)' },
     { term: 'pakistan',            reason: 'E1: Pakistan (not Africa)' },
     { term: 'solomon islands',     reason: 'E1: Solomon Islands (not Africa)' },
+    { term: 'timor',               reason: 'E1: Timor/East Timor (not Africa)' },
+    { term: 'south america',       reason: 'E1: South America (not West Africa)' },
+    { term: 'latin america',       reason: 'E1: Latin America (not West Africa)' },
+    { term: 'central america',     reason: 'E1: Central America (not West Africa)' },
+    { term: 'honduras',            reason: 'E1: Honduras (not Africa)' },
+    { term: 'ecuador',             reason: 'E1: Ecuador (not Africa)' },
+    { term: 'bolivia',             reason: 'E1: Bolivia (not Africa)' },
+    { term: 'venezuela',           reason: 'E1: Venezuela (not Africa)' },
+    { term: 'guatemala',           reason: 'E1: Guatemala (not Africa)' },
+    { term: 'nicaragua',           reason: 'E1: Nicaragua (not Africa)' },
     // Wrong geography — non-West-African Africa
     { term: 'rwanda',              reason: 'E1: Rwanda (not West Africa)' },
     { term: 'ethiopia',            reason: 'E1: Ethiopia (not West Africa)' },
@@ -2487,6 +2903,71 @@ function preScreen(title, abstract = '') {
     { term: 'helminth',            reason: 'E2: helminth infection (wrong pathogen)' },
     { term: 'trypanosoma',         reason: 'E2: Trypanosoma (wrong pathogen)' },
     { term: 'leishmaniasis',       reason: 'E2: leishmaniasis (wrong pathogen)' },
+    // More reviews
+    { term: 'current concepts in', reason: 'E4: review article (current concepts)' },
+    { term: 'current review of',   reason: 'E4: review article' },
+    { term: 'state of the art',    reason: 'E4: review article (state of the art)' },
+
+    // ================================================================
+    // MASS EXCLUDES — categories confirmed out-of-scope by supervisors
+    // ================================================================
+
+    // --- Sickle cell / haemoglobinopathies (E2 — wrong primary target) ---
+    { term: 'sickle cell',  reason: 'E2: sickle cell disease/trait (wrong primary target)' },
+    { term: 'sickle-cell',  reason: 'E2: sickle cell disease/trait (wrong primary target)' },
+
+    // --- G6PD deficiency (E2 — wrong primary target) ---
+    { term: 'g6pd deficiency',   reason: 'E2: G6PD deficiency (wrong primary target)' },
+    { term: 'g6pd-deficiency',   reason: 'E2: G6PD deficiency (wrong primary target)' },
+    { term: 'glucose-6-phosphate dehydrogenase deficiency', reason: 'E2: G6PD deficiency (wrong primary target)' },
+
+    // --- Immunology / serology — PRIORITY (safe: rarely co-reported with resistance genotyping) ---
+    { term: 'humoral immunity',           reason: 'E4: humoral immunity (not drug resistance)' },
+    { term: 'antibody titre',             reason: 'E4: antibody titre (not drug resistance)' },
+    { term: 'antibody titer',             reason: 'E4: antibody titer (not drug resistance)' },
+    { term: 'naturally acquired immunity',reason: 'E4: naturally acquired immunity (not drug resistance)' },
+
+    // --- Immunology / serology — SOFT (STRONG gene overrides; rare mixed study possible) ---
+    { term: 'seroprevalence',   reason: 'E4: seroprevalence (no resistance molecular data)' },
+    { term: 'serological survey', reason: 'E4: serological survey (no resistance molecular data)' },
+    { term: 'serologic survey',   reason: 'E4: serological survey (no resistance molecular data)' },
+    { term: 'malaria serology',   reason: 'E4: serological — malaria serology (not resistance)' },
+
+    // --- Parasite antigen diversity (E4 — not drug resistance) ---
+    { term: 'circumsporozoite protein', reason: 'E4: circumsporozoite protein (parasite diversity, not resistance)' },
+    { term: 'circumsporozoite antigen', reason: 'E4: circumsporozoite antigen (parasite diversity, not resistance)' },
+    { term: 'glurp allel',  reason: 'E4: GLURP allele diversity (parasite diversity, not resistance)' },
+    { term: 'glurp genotyp',reason: 'E4: GLURP genotyping (parasite diversity, not resistance)' },
+
+    // --- RDT / diagnostics — SOFT (pfhrp2 deletion papers combine RDT + genotyping) ---
+    { term: 'rdt sensitivity', reason: 'E4: RDT diagnostic sensitivity (no resistance data)' },
+    { term: 'rdt specificity', reason: 'E4: RDT diagnostic specificity (no resistance data)' },
+    { term: 'rdt performance', reason: 'E4: RDT diagnostic performance (no resistance data)' },
+    { term: 'rdt evaluation',  reason: 'E4: RDT diagnostic evaluation (no resistance data)' },
+    { term: 'rdt accuracy',    reason: 'E4: RDT diagnostic accuracy (no resistance data)' },
+
+    // --- Health systems / knowledge / behaviour (E4) ---
+    { term: 'treatment seeking',          reason: 'E4: treatment-seeking study (no molecular data)' },
+    { term: 'treatment-seeking behaviour',reason: 'E4: treatment-seeking behaviour (no molecular data)' },
+    { term: 'knowledge, attitude',        reason: 'E4: knowledge/attitude/practice study (no molecular data)' },
+    { term: 'knowledge and attitude',     reason: 'E4: knowledge/attitude study (no molecular data)' },
+    { term: 'malaria knowledge',          reason: 'E4: malaria knowledge study (no molecular data)' },
+    { term: 'community case management',  reason: 'E4: community case management (no molecular data)' },
+    { term: 'prescribing pattern',        reason: 'E4: prescribing pattern study (no molecular data)' },
+    { term: 'prescription pattern',       reason: 'E4: prescription pattern study (no molecular data)' },
+
+    // --- Pure malaria epidemiology (E4 — no molecular resistance data) ---
+    { term: 'malaria endemicity',           reason: 'E4: malaria endemicity (no resistance molecular data)' },
+    { term: 'entomological inoculation rate',reason: 'E4: entomological inoculation rate (not resistance)' },
+    { term: 'malaria atlas',                reason: 'E4: malaria atlas/mapping (no resistance molecular data)' },
+
+    // --- Vector control / bed nets — SOFT (may co-report drug resistance data in mixed studies) ---
+    { term: 'insecticide-treated net',      reason: 'E3: LLIN/ITN — insecticide-treated net (not drug resistance)' },
+    { term: 'insecticide treated net',      reason: 'E3: LLIN/ITN — insecticide-treated net (not drug resistance)' },
+    { term: 'bed net coverage',             reason: 'E3: LLIN/ITN — bed net coverage (not drug resistance)' },
+    { term: 'llin coverage',                reason: 'E3: LLIN/ITN — LLIN coverage (not drug resistance)' },
+    { term: 'long-lasting insecticidal net',reason: 'E3: LLIN/ITN — long-lasting insecticidal net (not drug resistance)' },
+    { term: 'indoor residual spraying',     reason: 'E3: LLIN/ITN — indoor residual spraying (not drug resistance)' },
   ];
 
   // ABSOLUTE GEO EXCLUDES — checked BEFORE West Africa detection.
@@ -2513,7 +2994,7 @@ function preScreen(title, abstract = '') {
     'pfdhfr','pfdhps','plasmepsin','pfpm2','pfpm3','pfatpase','pfmrp','pfk13',
     'pfnhe','pfcoronin','pfubp','pfubp1','pfap2mu','pfap2-mu',
     'kelch propeller',
-    'dihydrofolate reductase','dihydropteroate synthase',
+    // dihydrofolate reductase / dihydropteroate synthase moved to weakGeneNames
     // Exact gene names — P. vivax, P. malariae, P. ovale
     'pvdhfr','pvdhps','pvmdr1','pvkelch','pvcrt',
     'pmdhfr','pmdhps','podhfr',
@@ -2547,15 +3028,19 @@ function preScreen(title, abstract = '') {
     'drug-resistant clone',
     'drug-resistant strain','drug-resistant isolate',
     'drug resistant malaria','drug-resistant malaria',
-    'antimalarial resistance',
     'malaria drug resistance',
-    // 'antimalarial drug resistance' moved to weakGeneNames — too generic as abstract background
+    // 'antimalarial resistance' and 'antimalarial drug resistance' moved to weakGeneNames
     'multidrug-resistant plasmodium','multidrug resistant plasmodium',
+    // HRP2/HRP3 deletion — RDT-failure genotyping papers (protect from RDT diagnostic soft-exclude)
+    'pfhrp2','pfhrp3','pfhrp2 deletion','pfhrp3 deletion',
+    'hrp2 deletion','hrp3 deletion','false-negative rdt','false negative rdt',
   ];
   // WEAK: too generic — checked in TITLE ONLY (commonly appear as background in unrelated abstracts)
   const weakGeneNames = [
-    'antifolate',          // appears as drug class background in non-resistance papers
+    'antifolate',             // appears as drug class background in non-resistance papers
     'drug-resistant parasit', // matches model paper abstracts
+    'dihydrofolate reductase','dihydropteroate synthase', // appear as targets in chemistry papers
+    'antimalarial resistance','antimalarial drug resistance', // appear in adherence/policy abstracts
     'drug resistance','resistance profile','resistance pattern','resistance mutation',
     'resistance markers',
     'multidrug resistance','multi-drug resistance','multiresistant','multidrug-resistant',
@@ -2564,55 +3049,106 @@ function preScreen(title, abstract = '') {
     'selection on','selective sweep','selection pressure',
     'efficacy and resistance','efficacy and selection',
     'development of resistance',
-    'antimalarial drug resistance',
   ];
 
   // hasWestAfrica (full text) used for auto-include and MAYBE reason
   const hasWestAfrica = westAfrica.some(c => tl.includes(c));
 
-  // Non-geographic hard excludes ALWAYS win
-  const nonGeoExcludes = hardExcludes.filter(e => !e.reason.startsWith('E1:'));
-  for (const { term, reason } of nonGeoExcludes) {
+  // Split excludes into priority (always fire) and soft (STRONG gene can override).
+  // Soft: in vitro, ex vivo, cell line, microtechnique, insecticide/kdr/pyrethroid resistance.
+  // Supervisors confirmed (March 2026 Q5, Q8, Q12): field isolate papers combining in vitro
+  // IC50 with genotyping, and mixed insecticide+drug resistance papers, should be included.
+  const _softPrefixes = [
+    // In vitro / lab methods (field isolate IC50 papers → MAYBE when WA in title, not EXC)
+    'E3: in vitro', 'E3: ex vivo', 'E3: cell line', 'E3: microtechnique',
+    // Vector/insecticide (mixed insecticide+drug resistance papers should be included)
+    'E3: insecticide resistance', 'E3: knockdown resistance',
+    'E3: pyrethroid resistance', 'E3: kdr',
+    // Vector control — LLIN/ITN/IRS papers occasionally co-report drug resistance data
+    'E3: LLIN/ITN',
+    // Diagnostics — pfhrp2 deletion papers combine RDT failure with resistance genotyping
+    'E4: RDT diagnostic',
+    // Serology — rare mixed studies may combine seroprevalence + resistance genotyping
+    'E4: seroprevalence', 'E4: serological',
+  ];
+  const isSoft = r => _softPrefixes.some(p => r.startsWith(p));
+  const priorityExcludes = hardExcludes.filter(e => !e.reason.startsWith('E1:') && !isSoft(e.reason));
+  const softExcludes     = hardExcludes.filter(e => !e.reason.startsWith('E1:') &&  isSoft(e.reason));
+  const geoExcludes      = hardExcludes.filter(e =>  e.reason.startsWith('E1:'));
+
+  // 1. Priority non-geo excludes — always fire (reviews, wrong disease/pathogen, animal, in silico, plants)
+  for (const { term, reason } of priorityExcludes) {
+    if (tl.includes(term)) return { verdict: 'exc', score: 0.02, reason };
+  }
+
+  // 2. Geographic excludes — only fire if no WA country in TITLE
+  if (!hasWestAfricaTitle) {
+    for (const { term, reason } of geoExcludes) {
+      if (tl.includes(term)) return { verdict: 'exc', score: 0.02, reason };
+    }
+  }
+
+  // 3. STRONG gene + WA → hard include (overrides soft excludes below).
+  //    Field isolate papers with in vitro methods, and mixed insecticide+drug papers,
+  //    correctly auto-include when primary molecular marker data is present.
+  let isAnophelesPaper = false;
+  if (hasWestAfrica) {
+    isAnophelesPaper = tl.includes('anopheles') &&
+      (tl.includes('mosquito') || tl.includes('vector') || tl.includes('entomolog') ||
+       tl.includes('gambiae') || tl.includes('funestus') || tl.includes('coluzzii') ||
+       tl.includes('arabiensis'));
+
+    const matchedStrong = strongGeneNames.find(g => tl.includes(g));
+    if (matchedStrong && !isAnophelesPaper) {
+      const country = westAfrica.find(c => tl.includes(c));
+      return { verdict: 'inc', score: 0.95, reason: 'I2+I3: ' + matchedStrong + ' + ' + country + ' in text' };
+    }
+  }
+
+  // 4. Soft non-geo excludes (in vitro, insecticide resistance, kdr, pyrethroid).
+  //    Two special break conditions → MAYBE instead of EXC:
+  //    (a) in vitro/ex vivo/cell line + WA in TITLE → MAYBE
+  //        IC50 field isolate papers; keep for abstract review (supervisor Christina, Q6).
+  //    (b) insecticide resistance + drug resistance WEAK phrase in TITLE → MAYBE
+  //        Mixed insecticide+drug resistance papers; include if stratified (supervisor Q8).
+  const _inVitroLike    = ['in vitro', 'ex vivo', 'cell line', 'microtechnique'];
+  const _insecticideLike = [
+    'E3: insecticide resistance', 'E3: knockdown resistance',
+    'E3: pyrethroid resistance', 'E3: kdr', 'E3: LLIN/ITN',
+  ];
+  for (const { term, reason } of softExcludes) {
     if (tl.includes(term)) {
+      // (a) IC50 field isolate papers
+      if (hasWestAfricaTitle && _inVitroLike.some(s => reason.includes(s))) break;
+      // (b) Mixed insecticide+drug papers — any drug resistance WEAK phrase in title
+      if (_insecticideLike.some(p => reason.startsWith(p))) {
+        if (weakGeneNames.some(g => tl_title.includes(g))) break;
+      }
       return { verdict: 'exc', score: 0.02, reason };
     }
   }
 
-  // Geographic hard excludes only fire if NO West African country is in the TITLE
-  // (using title-only to prevent abstracts mentioning "West Africa" as comparison from bypassing exclusion)
-  if (!hasWestAfricaTitle) {
-    const geoExcludes = hardExcludes.filter(e => e.reason.startsWith('E1:'));
-    for (const { term, reason } of geoExcludes) {
-      if (tl.includes(term)) {
-        return { verdict: 'exc', score: 0.02, reason };
-      }
-    }
-  }
-
-  // Hard include: West African country + explicit gene/resistance phrase
-  // Only reached if no hard exclude matched
+  // 5. WEAK gene + WA (TITLE ONLY) → include
   if (hasWestAfrica) {
-    // If title is primarily about Anopheles mosquitoes, downgrade to MAYBE even with resistance terms
-    const isAnophelesPaper = tl.includes('anopheles') &&
-      (tl.includes('mosquito') || tl.includes('vector') || tl.includes('entomolog') ||
-       tl.includes('gambiae') || tl.includes('funestus') || tl.includes('coluzzii') ||
-       tl.includes('arabiensis') || tl.includes('population genetic') && tl.includes('anopheles'));
-
-    // STRONG: match in full text (title + abstract) — specific enough to be safe
-    let matchedGene = strongGeneNames.find(g => tl.includes(g));
-    // WEAK: match in TITLE ONLY — too broad for abstract-level matching
-    if (!matchedGene) matchedGene = weakGeneNames.find(g => tl_title.includes(g));
-
-    if (matchedGene && !isAnophelesPaper) {
+    const matchedWeak = weakGeneNames.find(g => tl_title.includes(g));
+    if (matchedWeak && !isAnophelesPaper) {
       const country = westAfrica.find(c => tl.includes(c));
-      return { verdict: 'inc', score: 0.95, reason: 'I2+I3: ' + matchedGene + ' + ' + country + ' in title' };
+      return { verdict: 'inc', score: 0.95, reason: 'I2+I3: ' + matchedWeak + ' + ' + country + ' in title' };
     }
   }
 
-  // Everything else → MAYBE (human review)
-  return { verdict: 'maybe', score: 0.5, reason: hasWestAfrica
-    ? 'West African country in title — no explicit gene name, needs review'
-    : 'No definitive geography or marker — needs review' };
+  // 6. No West African geography anywhere → E1/E8 exclude.
+  //    Papers with no WA country in title OR abstract cannot be confirmed as in-scope,
+  //    even if they discuss resistance — country of sample collection is unverifiable (E8)
+  //    or they are clearly outside West Africa (E1).
+  if (!hasWestAfrica) {
+    return { verdict: 'exc', score: 0.02,
+      reason: 'E1/E8: no West African geography identified in title or abstract — unverifiable scope' };
+  }
+
+  // 7. WA geography present but no gene phrase → MAYBE for manual abstract review
+  return { verdict: 'maybe', score: 0.5,
+    reason: 'West African country in title — no explicit gene name, needs review' };
 }
 
 // Strict single-request queue
