@@ -1916,7 +1916,6 @@ function renderTitleList() {
   const container = document.getElementById('title-list');
   if (!container) return;
   let headerHTML = '';
-  const reasonFilter = document.getElementById('list-reason-filter')?.value || '';
   if (filters.title === 'inc' && !reasonFilter) {
     const cats = {};
     recs.forEach(r => {
