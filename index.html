@@ -780,6 +780,9 @@
   <div class="tab" onclick="switchTab('prisma')" id="tab-prisma">
     <span>05 · PRISMA</span>
   </div>
+  <div class="tab" onclick="switchTab('qc')" id="tab-qc">
+    <span>06 · QC</span>
+  </div>
 </div>
 
 <div class="stats-bar">
@@ -902,8 +905,8 @@
       <button class="btn btn-primary" id="btn-to-title" onclick="switchTab('title')" disabled>
         Continue to Title Screening →
       </button>
-      <button class="btn btn-ghost" id="btn-export-sample" onclick="exportRandomSample()" disabled style="font-size:11px">
-        📋 Export 30% Sample for Supervisor
+      <button class="btn btn-ghost" id="btn-export-sample" onclick="generateSampleCode()" disabled style="font-size:11px">
+        🔑 Generate Supervisor Sample Code
       </button>
       <button class="btn btn-ghost" id="btn-prescreen-all" onclick="runPreScreenAll()" disabled style="font-size:11px">
         ⚡ Pre-screen All (Ctrl+Shift+P)
@@ -1024,7 +1027,8 @@
             <div class="fc-title" id="ab-title">Loading...</div>
             <div class="fc-meta" id="ab-meta"></div>
             <div id="ab-abstract" style="font-size:13px;line-height:1.7;color:var(--text2);margin-top:12px;max-height:340px;overflow-y:auto;padding-right:4px"></div>
-            <div id="ab-links" style="margin-top:10px;display:flex;gap:10px"></div>
+            <div id="ab-abstract-full" style="display:none;font-size:13px;line-height:1.7;color:var(--text2);margin-top:12px;padding-right:4px"></div>
+            <div id="ab-links" style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"></div>
             <div id="ab-reasons" style="display:none;margin-top:12px;flex-wrap:wrap;gap:6px"></div>
           </div>
           <div class="flashcard-keys">
@@ -1092,6 +1096,92 @@
       <div style="margin-top:16px;display:flex;gap:10px">
         <button class="btn btn-ghost" onclick="exportCSV('final')">Export Final Results</button>
         <button class="btn btn-ghost" onclick="exportCSV('all')">Export All Decisions</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QC PANEL -->
+  <div class="panel" id="panel-qc">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-family:var(--mono);font-size:12px;color:var(--text2);letter-spacing:0.04em">SUPERVISOR QC — 30% RANDOM SAMPLE</div>
+      <button class="btn btn-ghost" onclick="svShowCompare()" id="sv-compare-btn" style="font-size:11px;display:none">⚖ Compare Decisions</button>
+    </div>
+
+    <!-- Code entry -->
+    <div id="sv-code-section">
+      <div style="max-width:480px">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:8px">Enter the sample code to load the same 30% random sample</div>
+        <div style="display:flex;gap:8px">
+          <input id="sv-code-input" type="text" placeholder="e.g. SR-A3F7-K9M2-X4Q1" spellcheck="false"
+            style="flex:1;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;font-family:var(--mono);font-size:13px;color:var(--text);outline:none"
+            onkeydown="if(event.key==='Enter')svLoadCode()">
+          <button class="btn btn-primary" onclick="svLoadCode()" style="font-size:12px">Load Sample</button>
+        </div>
+        <div id="sv-code-error" style="font-family:var(--mono);font-size:11px;color:var(--exc);margin-top:6px;display:none"></div>
+        <div style="margin-top:20px;padding:14px;background:var(--surface2);border:1px solid var(--border2);border-radius:8px">
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.08em;margin-bottom:8px">YOUR SAMPLE CODE</div>
+          <div id="sv-my-code" style="font-family:var(--mono);font-size:14px;color:var(--text);letter-spacing:0.1em">—</div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px" id="sv-my-code-info"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Screening UI (hidden until code loaded) -->
+    <div id="sv-screen-section" style="display:none">
+      <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3)" id="sv-code-display"></div>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost" style="font-size:11px" onclick="svResetView()">← Change Code</button>
+        <button id="sv-mode-fc-btn"  class="btn btn-primary" style="font-size:11px" onclick="svSetMode('fc')">Flashcard</button>
+        <button id="sv-mode-list-btn" class="btn btn-ghost"  style="font-size:11px" onclick="svSetMode('list')">List</button>
+      </div>
+
+      <!-- Filter bar -->
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="filter-btn active" id="svf-all"     onclick="svSetFilter('all')">All <span id="svf-all-n"></span></button>
+        <button class="filter-btn"        id="svf-pending" onclick="svSetFilter('pending')">Pending <span id="svf-pending-n"></span></button>
+        <button class="filter-btn"        id="svf-inc"     onclick="svSetFilter('inc')">Include <span id="svf-inc-n"></span></button>
+        <button class="filter-btn"        id="svf-exc"     onclick="svSetFilter('exc')">Exclude <span id="svf-exc-n"></span></button>
+        <button class="filter-btn"        id="svf-maybe"   onclick="svSetFilter('maybe')">Maybe <span id="svf-maybe-n"></span></button>
+      </div>
+
+      <!-- Flashcard mode -->
+      <div id="sv-fc-mode">
+        <div style="display:flex;gap:16px;min-height:480px">
+          <!-- Card -->
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+              <div style="font-family:var(--mono);font-size:11px;color:var(--text3)" id="sv-fc-num"></div>
+              <div id="sv-fc-meta" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+            </div>
+            <div class="progress-bar" style="margin-bottom:12px">
+              <div class="progress-fill" id="sv-fc-progress-fill" style="width:0%"></div>
+              <span class="progress-label" id="sv-fc-progress-label">0 / 0</span>
+            </div>
+            <div class="flashcard" id="sv-fc-card">
+              <div class="fc-title" id="sv-fc-title">Load a sample code to begin</div>
+              <div id="sv-fc-abstract" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:12px;max-height:120px;overflow:hidden;line-height:1.6"></div>
+            </div>
+            <div class="fc-actions" style="margin-top:12px">
+              <button class="btn-decide btn-exc" onclick="svDecide('exc')">✕ Exclude</button>
+              <button class="btn-decide btn-maybe" onclick="svDecide('maybe')">? Maybe</button>
+              <button class="btn-decide btn-inc" onclick="svDecide('inc')">✓ Include</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;justify-content:center">
+              <button class="btn btn-ghost" style="font-size:11px" onclick="svUndo()">↩ Undo</button>
+              <button class="btn btn-ghost" style="font-size:11px" onclick="svSkip()">Skip →</button>
+            </div>
+          </div>
+          <!-- Sidebar -->
+          <div class="fc-sidebar" style="width:260px;flex-shrink:0;overflow-y:auto;max-height:560px">
+            <div id="sv-fc-sidebar-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- List mode -->
+      <div id="sv-list-mode" style="display:none">
+        <div id="sv-list"></div>
       </div>
     </div>
   </div>
@@ -2212,10 +2302,59 @@ function abRenderCard() {
   const rec = abFcRecords[abFcIndex];
   const dec = rec.abstractDecision;
   document.getElementById('ab-num').textContent = '#' + String(abFcIndex + 1).padStart(4, '0') + ' · ' + rec.source.toUpperCase();
-  const resistanceWords = ['resistance','resistant','mutation','polymorphism','genotype','allele','haplotype','pfcrt','pfmdr','kelch','pfdhfr','pfdhps','plasmepsin','molecular marker','chloroquine','artemisinin','sulfadoxine'];
+  // Two-tier highlighting: blue = resistance/molecular signal; green = WA geography
+  const _hlResistance = [
+    // Specific gene names
+    'pfcrt','pfmdr1','pfmdr','pfkelch13','pfkelch','kelch13','kelch 13','k13','pfk13',
+    'pfdhfr','pfdhps','plasmepsin','pfpm2','pfpm3','pfatpase','pfmrp','pfnhe','pfcoronin',
+    'pfubp1','pfap2mu','pfap2-mu','kelch propeller',
+    'pvdhfr','pvdhps','pvmdr1','pvkelch','pvcrt','pmdhfr','pmdhps',
+    'pfhrp2','pfhrp3','hrp2','hrp3',
+    // Drug resistance phrases
+    'chloroquine resistance','artemisinin resistance','sulfadoxine resistance',
+    'sulfadoxine-pyrimethamine resistance','sp resistance',
+    'lumefantrine resistance','piperaquine resistance','amodiaquine resistance',
+    'mefloquine resistance','quinine resistance',
+    'chloroquine-resistant','artemisinin-resistant','multidrug-resistant',
+    'drug resistance','drug-resistant','resistance mutation','resistance marker',
+    'molecular marker','molecular surveillance','resistance genotyp','resistance allel',
+    'resistance haplotyp','resistance polymorphism','resistance profil',
+    'resistance determinant','treatment failure','selective sweep','selection pressure',
+    // Mutations by name
+    'k76t','k76','n86y','y86','c580y','f446i','r539t','i543t','m476i',
+    'dhfr mutation','dhps mutation','dhfr polymorphism','dhps polymorphism',
+    'dhfr and dhps','triple mutant','quintuple mutant','sextuple mutant',
+    // General molecular
+    'mutation','polymorphism','genotype','allele','haplotype','snp','single nucleotide',
+    'microsatellite','pcr','sequencing','whole genome','genotyping',
+    // Drugs (in context)
+    'chloroquine','artemisinin','sulfadoxine','pyrimethamine','lumefantrine',
+    'piperaquine','amodiaquine','mefloquine','quinine','artesunate','artemether',
+    'dihydroartemisinin','coartem','fansidar',
+  ];
+  const _hlGeo = [
+    'nigeria','ghana','senegal','mali','burkina faso','benin','togo','niger',
+    'cameroon','liberia','sierra leone','gambia','mauritania','cabo verde','cape verde',
+    'guinea-bissau','ivory coast','cote d\'ivoire','equatorial guinea','chad','guinea',
+    'west africa','western africa','west african','sahel',
+    'lagos','accra','dakar','bamako','ouagadougou','yaounde','abidjan','conakry',
+    'freetown','monrovia','banjul','niamey','lome','cotonou','bissau','nouakchott',
+    'ibadan','kumasi','douala','abuja','kano',
+  ];
   function hlText(txt) {
     let s = (txt||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    resistanceWords.forEach(w => { s = s.replace(new RegExp('(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi'), '<mark style="background:rgba(79,142,247,0.25);color:var(--text);border-radius:2px;padding:0 2px">$1</mark>'); });
+    // Geo highlight first (green) — longer phrases before shorter to avoid partial overlap
+    const geoSorted = [..._hlGeo].sort((a,b) => b.length - a.length);
+    geoSorted.forEach(w => {
+      s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'),
+        '<mark style="background:rgba(45,212,160,0.18);color:#2dd4a0;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>');
+    });
+    // Resistance highlight (blue) — longer phrases first
+    const resSorted = [..._hlResistance].sort((a,b) => b.length - a.length);
+    resSorted.forEach(w => {
+      s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'),
+        '<mark style="background:rgba(79,142,247,0.22);color:#7ab3ff;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>');
+    });
     return s;
   }
   document.getElementById('ab-title').innerHTML = hlText(rec.title);
@@ -2232,12 +2371,71 @@ function abRenderCard() {
     const lks = [];
     if (rec.doi)  lks.push('<a href="https://doi.org/' + rec.doi + '" target="_blank" style="color:var(--accent);font-family:var(--mono);font-size:11px;text-decoration:none">DOI →</a>');
     if (rec.pmid) lks.push('<a href="https://pubmed.ncbi.nlm.nih.gov/' + rec.pmid + '" target="_blank" style="color:var(--accent);font-family:var(--mono);font-size:11px;text-decoration:none">PubMed →</a>');
+    // Full abstract expand / fetch button
+    if (rec.abstract && rec.abstract.length > 10) {
+      lks.push('<button id="ab-expand-btn" class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="abToggleFullAbstract()">⤢ Full abstract</button>');
+    } else {
+      lks.push('<button id="ab-fetch-btn" class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="abFetchAbstract()">⬇ Fetch abstract</button>');
+    }
     linksEl.innerHTML = lks.join('');
   }
+  // Reset full-abstract view when card changes
+  const fullEl = document.getElementById('ab-abstract-full');
+  const shortEl = document.getElementById('ab-abstract');
+  if (fullEl) { fullEl.style.display = 'none'; fullEl.innerHTML = ''; }
+  if (shortEl) shortEl.style.display = '';
   const card = document.getElementById('ab-card');
   if (card) card.className = 'flashcard' + (dec ? ' flash-' + dec : '');
   abShowReasons(dec === 'exc');
   document.querySelectorAll('#ab-sidebar-list .sidebar-item').forEach(el => el.classList.toggle('active', el.dataset.id === rec.id));
+}
+
+function abToggleFullAbstract() {
+  const rec = abFcRecords[abFcIndex];
+  if (!rec || !rec.abstract) return;
+  const shortEl = document.getElementById('ab-abstract');
+  const fullEl  = document.getElementById('ab-abstract-full');
+  const btn     = document.getElementById('ab-expand-btn');
+  if (!fullEl || !shortEl) return;
+  const showing = fullEl.style.display !== 'none';
+  if (showing) {
+    fullEl.style.display = 'none';
+    shortEl.style.display = '';
+    if (btn) btn.textContent = '⤢ Full abstract';
+  } else {
+    // Render full abstract with no height cap
+    const resistanceWords = _hlResistance;
+    const geoWords = _hlGeo;
+    function hlFull(txt) {
+      let s = (txt||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const geoSorted = [...geoWords].sort((a,b) => b.length - a.length);
+      geoSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'), '<mark style="background:rgba(45,212,160,0.18);color:#2dd4a0;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>'); });
+      const resSorted = [...resistanceWords].sort((a,b) => b.length - a.length);
+      resSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'), '<mark style="background:rgba(79,142,247,0.22);color:#7ab3ff;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>'); });
+      return s;
+    }
+    fullEl.innerHTML = hlFull(rec.abstract);
+    fullEl.style.display = '';
+    shortEl.style.display = 'none';
+    if (btn) btn.textContent = '⤡ Collapse';
+  }
+}
+
+async function abFetchAbstract() {
+  const rec = abFcRecords[abFcIndex];
+  if (!rec) return;
+  if (rec.abstract) { abToggleFullAbstract(); return; }
+  if (!rec.pmid) { toast('No PMID — cannot fetch abstract'); return; }
+  const btn = document.getElementById('ab-fetch-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Fetching...'; }
+  await fetchAbstractByPmid(rec);
+  if (btn) { btn.disabled = false; btn.textContent = '⬇ Fetch abstract'; }
+  if (rec.abstract) {
+    toast('Abstract loaded ✓');
+    abRenderCard();
+  } else {
+    toast('Could not fetch abstract');
+  }
 }
 
 function abShowReasons(show) {
@@ -2594,9 +2792,12 @@ function preScreen(title, abstract = '') {
     // Countries
     'nigeria','ghana','senegal','mali','burkina faso','benin','togo','niger',
     'cameroon','guinea','liberia','sierra leone','gambia','mauritania','cabo verde','cape verde',
-    'guinea-bissau','ivory coast',"cote d'ivoire",'cote divoire','equatorial guinea','chad',
+    'guinea-bissau','ivory coast',"cote d'ivoire","côte d'ivoire",'cote divoire','côte divoire','equatorial guinea','chad',
     // Regional terms
     'west africa','western africa','west african','sahel','ecowas',
+    // Compound regional phrases (pan-African papers covering WA alongside other regions)
+    'west and central africa','central and west africa','west and east africa',
+    'western and central africa','sub-saharan africa','sub-saharan african','francophone africa',
     // Major cities — papers often name the city without the country
     // Nigeria
     'lagos','ibadan','abuja','kano','kaduna','zaria','enugu','port harcourt',
@@ -2914,6 +3115,17 @@ function preScreen(title, abstract = '') {
     // --- Sickle cell / haemoglobinopathies (E2 — wrong primary target) ---
     { term: 'sickle cell',  reason: 'E2: sickle cell disease/trait (wrong primary target)' },
     { term: 'sickle-cell',  reason: 'E2: sickle cell disease/trait (wrong primary target)' },
+    // --- Host genetic resistance to malaria (confirmed by manual review) ---
+    { term: 'hemoglobin c',              reason: 'E2: haemoglobin C — host genetic resistance (not drug resistance)' },
+    { term: 'haemoglobin c',             reason: 'E2: haemoglobin C — host genetic resistance (not drug resistance)' },
+    { term: 'haptoglobin genotype',      reason: 'E2: haptoglobin genotype — host genetics (not drug resistance)' },
+    { term: 'haptoglobin polymorphism',  reason: 'E2: haptoglobin polymorphism — host genetics (not drug resistance)' },
+    { term: 'innate resistance to malaria',   reason: 'E2: innate/host resistance to malaria (not drug resistance)' },
+    { term: 'natural resistance to malaria',  reason: 'E2: natural/host resistance to malaria (not drug resistance)' },
+    { term: 'genetic resistance to malaria',  reason: 'E2: host genetic resistance to malaria (not drug resistance)' },
+    { term: 'host resistance to malaria',     reason: 'E2: host resistance to malaria (not drug resistance)' },
+    { term: 'cyp2d6',  reason: 'E3: CYP2D6 pharmacokinetics (not drug resistance)' },
+    { term: 'cyp2c8',  reason: 'E3: CYP2C8 pharmacokinetics (not drug resistance)' },
 
     // --- G6PD deficiency (E2 — wrong primary target) ---
     { term: 'g6pd deficiency',   reason: 'E2: G6PD deficiency (wrong primary target)' },
@@ -2967,6 +3179,76 @@ function preScreen(title, abstract = '') {
     { term: 'llin coverage',                reason: 'E3: LLIN/ITN — LLIN coverage (not drug resistance)' },
     { term: 'long-lasting insecticidal net',reason: 'E3: LLIN/ITN — long-lasting insecticidal net (not drug resistance)' },
     { term: 'indoor residual spraying',     reason: 'E3: LLIN/ITN — indoor residual spraying (not drug resistance)' },
+
+    // ================================================================
+    // SUPERVISOR Q&A RULES — April 2026
+    // All SOFT: papers with a STRONG gene match are auto-included regardless.
+    // ================================================================
+
+    // Q1: IPTp / IPTi / chemoprevention without molecular resistance data
+    { term: 'intermittent preventive treat', reason: 'E4: IPTp/IPTi — clinical outcome, no molecular resistance data' },
+    { term: 'malaria chemoprevention',       reason: 'E4: IPTp/SMC — chemoprevention, no molecular resistance data' },
+    { term: 'seasonal malaria chemo',        reason: 'E4: SMC — chemoprevention, no molecular resistance data' },
+    { term: 'malaria in pregnancy',          reason: 'E4: pregnancy malaria — no molecular resistance data evident' },
+    { term: 'placental malaria',             reason: 'E4: placental malaria — no molecular resistance data evident' },
+    { term: 'pregnancy-associated malaria',  reason: 'E4: pregnancy malaria — no molecular resistance data evident' },
+    { term: 'congenital malaria',            reason: 'E4: pregnancy malaria — no molecular resistance data evident' },
+    { term: 'malaria prophylaxis',           reason: 'E4: IPTp/prophylaxis — no molecular resistance data evident' },
+
+    // Q2: Malaria prevalence / burden without resistance data
+    { term: 'malaria prevalence',            reason: 'E4: malaria prevalence — no molecular resistance data evident' },
+    { term: 'prevalence of malaria',         reason: 'E4: malaria prevalence — no molecular resistance data evident' },
+    { term: 'malaria incidence',             reason: 'E4: malaria incidence — no molecular resistance data evident' },
+    { term: 'malaria burden',                reason: 'E4: malaria burden — no molecular resistance data evident' },
+    { term: 'malaria morbidity',             reason: 'E4: malaria burden — no molecular resistance data evident' },
+    { term: 'malaria mortality',             reason: 'E4: malaria burden — no molecular resistance data evident' },
+    { term: 'malaria transmission',          reason: 'E4: malaria transmission — no molecular resistance data evident' },
+
+    // Q3: Treatment / therapeutic efficacy without genotyping
+    { term: 'therapeutic efficacy',          reason: 'E4: treatment efficacy — no molecular resistance data evident' },
+    { term: 'treatment efficacy',            reason: 'E4: treatment efficacy — no molecular resistance data evident' },
+    { term: 'drug efficacy',                 reason: 'E4: treatment efficacy — no molecular resistance data evident' },
+    { term: 'antimalarial efficacy',         reason: 'E4: treatment efficacy — no molecular resistance data evident' },
+    { term: 'clinical efficacy',             reason: 'E4: treatment efficacy — no molecular resistance data evident' },
+    { term: 'efficacy and safety of',        reason: 'E4: treatment efficacy — no molecular resistance data evident' },
+    { term: 'artemether-lumefantrine',       reason: 'E4: ACT clinical outcome — no molecular resistance data evident' },
+    { term: 'artesunate-amodiaquine',        reason: 'E4: ACT clinical outcome — no molecular resistance data evident' },
+    { term: 'artesunate amodiaquine',        reason: 'E4: ACT clinical outcome — no molecular resistance data evident' },
+    { term: 'dihydroartemisinin-piperaquine',reason: 'E4: ACT clinical outcome — no molecular resistance data evident' },
+    { term: 'dihydroartemisinin piperaquine',reason: 'E4: ACT clinical outcome — no molecular resistance data evident' },
+
+    // --- Clinical malaria severity / PK / immunity (SOFT) ---
+    { term: 'cerebral malaria',              reason: 'E4: cerebral malaria — clinical severity (no molecular resistance data)' },
+    { term: 'severe falciparum malaria',     reason: 'E4: severe malaria — clinical (no molecular resistance data)' },
+    { term: 'uncomplicated falciparum malaria', reason: 'E4: uncomplicated malaria — clinical trial (no molecular resistance data)' },
+    { term: 'pharmacokinetic',               reason: 'E3: pharmacokinetics — drug levels, not resistance genotyping' },
+    { term: 'pharmacodynamic',               reason: 'E3: pharmacodynamics — drug levels, not resistance genotyping' },
+    { term: 'bioavailability',               reason: 'E3: bioavailability study — not resistance genotyping' },
+    { term: 'antibody response',             reason: 'E4: antibody/immune response — not drug resistance' },
+    { term: 'immune response to',            reason: 'E4: immune response — not drug resistance' },
+    { term: 'immunoglobulin response',       reason: 'E4: immunoglobulin response — not drug resistance' },
+    { term: 'igg subclass',                  reason: 'E4: IgG subclass — immunity, not drug resistance' },
+    { term: 'igm response',                  reason: 'E4: IgM response — immunity, not drug resistance' },
+
+    // Q5: Asymptomatic carriage / submicroscopic parasitaemia
+    { term: 'asymptomatic malaria',          reason: 'E4: asymptomatic malaria — no molecular resistance data evident' },
+    { term: 'asymptomatic parasitaemia',     reason: 'E4: asymptomatic malaria — no molecular resistance data evident' },
+    { term: 'asymptomatic carriage',         reason: 'E4: asymptomatic malaria — no molecular resistance data evident' },
+    { term: 'submicroscopic parasitaemia',   reason: 'E4: asymptomatic malaria — no molecular resistance data evident' },
+    { term: 'submicroscopic malaria',        reason: 'E4: asymptomatic malaria — no molecular resistance data evident' },
+    { term: 'asymptomatic plasmodium',       reason: 'E4: asymptomatic malaria — no molecular resistance data evident' },
+
+    // Q7: WGS / population genetics without resistance loci
+    { term: 'whole genome sequenc',          reason: 'E4: WGS/genomics — include only if resistance loci reported' },
+    { term: 'whole-genome sequenc',          reason: 'E4: WGS/genomics — include only if resistance loci reported' },
+    { term: 'population structure',          reason: 'E4: population genetics — no resistance loci evident' },
+    { term: 'population genetics',           reason: 'E4: population genetics — no resistance loci evident' },
+    { term: 'population genomics',           reason: 'E4: population genomics — no resistance loci evident' },
+    { term: 'genetic diversity of',          reason: 'E4: parasite genetic diversity — no resistance loci evident' },
+    { term: 'genetic structure of',          reason: 'E4: parasite genetic diversity — no resistance loci evident' },
+    { term: 'microsatellite marker',         reason: 'E4: parasite genetic diversity — no resistance loci evident' },
+    { term: 'microsatellite loci',           reason: 'E4: parasite genetic diversity — no resistance loci evident' },
+    { term: 'multilocus genotyp',            reason: 'E4: parasite genetic diversity — no resistance loci evident' },
   ];
 
   // ABSOLUTE GEO EXCLUDES — checked BEFORE West Africa detection.
@@ -2979,6 +3261,26 @@ function preScreen(title, abstract = '') {
   ];
   for (const { term, reason } of absoluteGeoExcludes) {
     if (tl.includes(term)) return { verdict: 'exc', score: 0.02, reason };
+  }
+
+  // 0.5. Mixed in vitro/ex vivo + in vivo rescue — BEFORE priority excludes.
+  //      Supervisor guidance (April 2026): exclude all in vitro and ex vivo.
+  //      Exception: if "in vivo" is ALSO present, the paper has a field/clinical
+  //      component and must be reviewed rather than auto-excluded.
+  //      IMPORTANT: if a STRONG gene is also present (e.g. kelch13 + in vitro + in vivo)
+  //      → do NOT rescue to MAYBE; fall through to step 3 for auto-include.
+  const hasInVitroOrExVivo = tl.includes('in vitro') || tl.includes('in-vitro') || tl.includes('ex vivo') || tl.includes('ex-vivo');
+  const hasInVivo = tl.includes('in vivo') || tl.includes('in-vivo');
+  if (hasInVitroOrExVivo && hasInVivo) {
+    const hasWaEarly = westAfrica.some(c => tl.includes(c));
+    if (hasWaEarly) {
+      const hasStrongEarly = strongGeneNames.some(g => tl.includes(g));
+      if (!hasStrongEarly) {
+        return { verdict: 'maybe', score: 0.5,
+          reason: 'Mixed in vitro+in vivo study in West Africa — check if field component reports molecular resistance data' };
+      }
+      // STRONG gene present → fall through to step 3 for auto-include
+    }
   }
 
   // Geo-exclude gating uses TITLE ONLY — so non-WA papers whose abstracts mention
@@ -2999,10 +3301,35 @@ function preScreen(title, abstract = '') {
     'pmdhfr','pmdhps','podhfr',
     // Drug-class specific resistance terms (specific enough for abstract use)
     'chloroquine resistance','artemisinin resistance','sulfadoxine resistance',
+    'sulfadoxine-pyrimethamine resistance','sp resistance','sp-resistance',
+    'pyrimethamine resistance','pyrimethamine-resistant',
     'piperaquine resistance','lumefantrine resistance','amodiaquine resistance',
+    'amodiaquine-resistant',
     'quinine resistance','quinine-resistant',
     'mefloquine resistance','mefloquine-resistant','mefloquine susceptib',
+    'mefloquine failure',
+    'halofantrine resistance','halofantrine-resistant',
+    'fansidar resistance',
     'chloroquine-resistant','artemisinin-resistant','sulfadoxine-resistant',
+    // Variant word orders and unhyphenated forms common in older literature
+    'chloroquine resistant','resistant to chloroquine','chloroquine-resistance',
+    'chloroquino-resistance','chloroquino-resistant',
+    'resistant to pyrimethamine','resistant to mefloquine','resistant to quinine',
+    'resistant to sulfadoxine','resistant to lumefantrine','resistant to artemisinin',
+    'resistant to fansidar','resistant to halofantrine','resistant to amodiaquine',
+    // Unhyphenated variants
+    'drug resistant isolate','drug resistant strain','drug resistant malaria',
+    'drug resistant plasmodium','drug resistant parasite',
+    // Sensitivity monitoring (old clinical language for resistance surveillance)
+    'sensitivity to chloroquine','sensitivity to antimalarial','sensitivity to quinine',
+    'chemosensitivity','chemoresistant','chemoresistance',
+    // Atovaquone-proguanil / newer drugs
+    'atovaquone-proguanil resistance','atovaquone resistance',
+    // In vivo resistance confirmation
+    'in vivo resistance','in-vivo resistance',
+    // dhfr/dhps written without 'pf' prefix — common in older and French papers
+    'dhfr mutation','dhps mutation','dhfr polymorphism','dhps polymorphism',
+    'dhfr and dhps','dhps and dhfr',
     'resistance to chloroquine','resistance to artemisinin','resistance to sulfadoxine',
     'resistance to lumefantrine','resistance to piperaquine','resistance to quinine',
     'resistance to antimalarial',
@@ -3054,12 +3381,9 @@ function preScreen(title, abstract = '') {
   const hasWestAfrica = westAfrica.some(c => tl.includes(c));
 
   // Split excludes into priority (always fire) and soft (STRONG gene can override).
-  // Soft: in vitro, ex vivo, cell line, microtechnique, insecticide/kdr/pyrethroid resistance.
-  // Supervisors confirmed (March 2026 Q5, Q8, Q12): field isolate papers combining in vitro
-  // IC50 with genotyping, and mixed insecticide+drug resistance papers, should be included.
+  // Supervisor guidance (April 2026): in vitro/ex vivo/cell line/microtechnique are now PRIORITY.
+  // The ONLY rescue for in vitro/ex vivo is if "in vivo" is also present — handled in step 0.5.
   const _softPrefixes = [
-    // In vitro / lab methods (field isolate IC50 papers → MAYBE when WA in title, not EXC)
-    'E3: in vitro', 'E3: ex vivo', 'E3: cell line', 'E3: microtechnique',
     // Vector/insecticide (mixed insecticide+drug resistance papers should be included)
     'E3: insecticide resistance', 'E3: knockdown resistance',
     'E3: pyrethroid resistance', 'E3: kdr',
@@ -3069,6 +3393,20 @@ function preScreen(title, abstract = '') {
     'E4: RDT diagnostic',
     // Serology — rare mixed studies may combine seroprevalence + resistance genotyping
     'E4: seroprevalence', 'E4: serological',
+    // Clinical severity / PK / immunity
+    'E4: cerebral malaria', 'E4: severe malaria', 'E4: uncomplicated malaria',
+    'E3: pharmacokinetics', 'E3: pharmacodynamics', 'E3: bioavailability',
+    'E4: antibody', 'E4: immune response', 'E4: immunoglobulin', 'E4: IgG', 'E4: IgM',
+    // Q1: IPTp / chemoprevention / pregnancy
+    'E4: IPTp', 'E4: SMC', 'E4: pregnancy malaria', 'E4: placental malaria',
+    // Q2: Prevalence / burden
+    'E4: malaria prevalence', 'E4: malaria incidence', 'E4: malaria burden', 'E4: malaria transmission',
+    // Q3: Treatment efficacy / ACT outcomes
+    'E4: treatment efficacy', 'E4: ACT clinical outcome',
+    // Q5: Asymptomatic / submicroscopic
+    'E4: asymptomatic malaria',
+    // Q7: WGS / population genetics
+    'E4: WGS', 'E4: population genetics', 'E4: population genomics', 'E4: parasite genetic',
   ];
   const isSoft = r => _softPrefixes.some(p => r.startsWith(p));
   const priorityExcludes = hardExcludes.filter(e => !e.reason.startsWith('E1:') && !isSoft(e.reason));
@@ -3088,8 +3426,8 @@ function preScreen(title, abstract = '') {
   }
 
   // 3. STRONG gene + WA → hard include (overrides soft excludes below).
-  //    Field isolate papers with in vitro methods, and mixed insecticide+drug papers,
-  //    correctly auto-include when primary molecular marker data is present.
+  //    At this point, in vitro/ex vivo papers without "in vivo" have already been
+  //    excluded by step 1 (PRIORITY). Papers reaching step 3 are field/clinical studies.
   let isAnophelesPaper = false;
   if (hasWestAfrica) {
     isAnophelesPaper = tl.includes('anopheles') &&
@@ -3104,22 +3442,17 @@ function preScreen(title, abstract = '') {
     }
   }
 
-  // 4. Soft non-geo excludes (in vitro, insecticide resistance, kdr, pyrethroid).
-  //    Two special break conditions → MAYBE instead of EXC:
-  //    (a) in vitro/ex vivo/cell line + WA in TITLE → MAYBE
-  //        IC50 field isolate papers; keep for abstract review (supervisor Christina, Q6).
-  //    (b) insecticide resistance + drug resistance WEAK phrase in TITLE → MAYBE
-  //        Mixed insecticide+drug resistance papers; include if stratified (supervisor Q8).
-  const _inVitroLike    = ['in vitro', 'ex vivo', 'cell line', 'microtechnique'];
+  // 4. Soft non-geo excludes (insecticide resistance, kdr, pyrethroid, LLIN, RDT, serology).
+  //    Note: in vitro/ex vivo/cell line/microtechnique are now PRIORITY (caught at step 1).
+  //    Break condition: insecticide resistance + drug resistance WEAK phrase in TITLE → MAYBE
+  //    (Mixed insecticide+drug resistance papers; include if stratified per supervisor Q8).
   const _insecticideLike = [
     'E3: insecticide resistance', 'E3: knockdown resistance',
     'E3: pyrethroid resistance', 'E3: kdr', 'E3: LLIN/ITN',
   ];
   for (const { term, reason } of softExcludes) {
     if (tl.includes(term)) {
-      // (a) IC50 field isolate papers
-      if (hasWestAfricaTitle && _inVitroLike.some(s => reason.includes(s))) break;
-      // (b) Mixed insecticide+drug papers — any drug resistance WEAK phrase in title
+      // Mixed insecticide+drug papers — any drug resistance WEAK phrase in title
       if (_insecticideLike.some(p => reason.startsWith(p))) {
         if (weakGeneNames.some(g => tl_title.includes(g))) break;
       }
@@ -3136,16 +3469,30 @@ function preScreen(title, abstract = '') {
     }
   }
 
-  // 6. No West African geography anywhere → E1/E8 exclude.
-  //    Papers with no WA country in title OR abstract cannot be confirmed as in-scope,
-  //    even if they discuss resistance — country of sample collection is unverifiable (E8)
-  //    or they are clearly outside West Africa (E1).
+  // 6. No West African geography anywhere.
+  //    (a) Africa broadly + resistance gene → MAYBE for abstract review.
+  //        Pan-African papers may include WA data not named in title/abstract.
+  //    (b) Otherwise → E1/E8 hard exclude.
   if (!hasWestAfrica) {
+    const hasAfricaBroad = tl.includes('afric');
+    const hasAnyGene = strongGeneNames.some(g => tl.includes(g)) || weakGeneNames.some(g => tl_title.includes(g));
+    if (hasAfricaBroad && hasAnyGene) {
+      return { verdict: 'maybe', score: 0.4,
+        reason: 'E8: Africa broadly + resistance gene — no specific WA geography, needs abstract review' };
+    }
     return { verdict: 'exc', score: 0.02,
       reason: 'E1/E8: no West African geography identified in title or abstract — unverifiable scope' };
   }
 
-  // 7. WA geography present but no gene phrase → MAYBE for manual abstract review
+  // 7. WA geography present but no gene phrase.
+  //    (a) No malaria term at all → off-topic paper in a WA country → EXC.
+  //    (b) Malaria present but no resistance signal → MAYBE for abstract review.
+  const _malariaTerm = ['malaria','plasmodium','falciparum','vivax','malariae','ovale','antimalarial','anti-malarial'];
+  const hasMalaria = _malariaTerm.some(m => tl.includes(m));
+  if (!hasMalaria) {
+    return { verdict: 'exc', score: 0.02,
+      reason: 'E9: West African geography but no malaria/Plasmodium context — off-topic paper' };
+  }
   return { verdict: 'maybe', score: 0.5,
     reason: 'West African country in title — no explicit gene name, needs review' };
 }
