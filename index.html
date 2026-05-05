@@ -2129,16 +2129,17 @@ function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
-  
-  const phases = { import:'phase-import', dedup:'phase-import', title:'phase-title', abstract:'phase-abstract' };
+
+  const phases = { import:'phase-import', dedup:'phase-import', title:'phase-title', abstract:'phase-abstract', qc:'phase-title', prisma:'phase-import' };
   const badge = document.getElementById('phase-badge');
-  badge.className = 'phase-badge ' + phases[tab];
-  const labels = { import:'IMPORT', dedup:'DEDUP', title:'TITLE SCREEN', abstract:'ABSTRACT SCREEN' };
-  badge.textContent = labels[tab];
-  
+  badge.className = 'phase-badge ' + (phases[tab] || 'phase-import');
+  const labels = { import:'IMPORT', dedup:'DEDUP', title:'TITLE SCREEN', abstract:'ABSTRACT SCREEN', qc:'QC REVIEW', prisma:'PRISMA' };
+  badge.textContent = labels[tab] || tab.toUpperCase();
+
   if (tab === 'title') fcInit();
   if (tab === 'abstract') abInit();
   if (tab === 'prisma') renderPrisma();
+  if (tab === 'qc') svTabInit();
   updateStats();
 }
 
@@ -3699,33 +3700,382 @@ function exportCSV(type) {
   toast('CSV exported');
 }
 
-// 30% RANDOM SAMPLE EXPORT
-function exportRandomSample() {
-  const unique = records.filter(r => !r.isDuplicate);
-  if (!unique.length) { toast('Run deduplication first'); return; }
+// ── SUPERVISOR QC — SEEDED 30% SAMPLE ────────────────────────────────────────
 
-  // Shuffle using Fisher-Yates
+// Mulberry32 seeded PRNG — same seed → same sequence every time
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Turn a code string into a numeric seed
+function codeToSeed(code) {
+  const s = code.replace(/-/g, '').toUpperCase();
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = Math.imul(31, h) + s.charCodeAt(i) | 0;
+  return h >>> 0;
+}
+
+// Build the fingerprint code for the current record set
+function buildSampleCode() {
+  const unique = records.filter(r => !r.isDuplicate);
+  if (!unique.length) return null;
+  const fingerprint = unique.map(r => r.id).join('');
+  let h = 5381;
+  for (let i = 0; i < fingerprint.length; i++) h = (Math.imul(33, h) ^ fingerprint.charCodeAt(i)) >>> 0;
+  const hex = h.toString(16).toUpperCase().padStart(8, '0');
+  return 'SR-' + hex.slice(0,4) + '-' + hex.slice(4,8) + '-' + unique.length.toString(16).toUpperCase().padStart(4,'0');
+}
+
+function generateSampleCode() {
+  const unique = records.filter(r => !r.isDuplicate);
+  if (!unique.length) { toast('No deduplicated records — run dedup first'); return; }
+  const code = buildSampleCode();
+  const el   = document.getElementById('sv-my-code');
+  const info = document.getElementById('sv-my-code-info');
+  if (el)   el.textContent   = code;
+  if (info) info.textContent = Math.ceil(unique.length * 0.3) + ' records · ' + unique.length + ' total unique';
+  navigator.clipboard.writeText(code).catch(() => {});
+  toast('Code copied: ' + code + ' — share with supervisor');
+  switchTab('qc');
+}
+
+// ── QC state ──────────────────────────────────────────────────────────────────
+let svCode   = '';
+let svSample = [];   // references into records[]
+let svIndex  = 0;
+let svFilter = 'all';
+let svMode   = 'fc';
+
+function svTabInit() {
+  const code = buildSampleCode();
+  const unique = records.filter(r => !r.isDuplicate);
+  const el   = document.getElementById('sv-my-code');
+  const info = document.getElementById('sv-my-code-info');
+  if (el && code)   el.textContent   = code;
+  if (info && code) info.textContent = Math.ceil(unique.length * 0.3) + ' records · ' + unique.length + ' total unique';
+  const inp = document.getElementById('sv-code-input');
+  if (inp && code && !inp.value) inp.value = code;
+  if (svSample.length) svRenderAll();
+}
+
+function svGetFiltered() {
+  if (svFilter === 'pending') return svSample.filter(r => !r.svDecision);
+  if (svFilter === 'inc')     return svSample.filter(r => r.svDecision === 'inc');
+  if (svFilter === 'exc')     return svSample.filter(r => r.svDecision === 'exc');
+  if (svFilter === 'maybe')   return svSample.filter(r => r.svDecision === 'maybe');
+  return svSample;
+}
+
+function svLoadCode() {
+  const raw   = (document.getElementById('sv-code-input').value || '').trim().toUpperCase();
+  const errEl = document.getElementById('sv-code-error');
+  errEl.style.display = 'none';
+  if (!raw) { errEl.textContent = 'Enter a code first.'; errEl.style.display = 'block'; return; }
+  const unique = records.filter(r => !r.isDuplicate);
+  if (!unique.length) { errEl.textContent = 'No deduplicated records loaded.'; errEl.style.display = 'block'; return; }
+
+  const seed = codeToSeed(raw);
+  const rng  = mulberry32(seed);
   const shuffled = [...unique];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  const sample = shuffled.slice(0, Math.ceil(shuffled.length * 0.3));
+  const n  = Math.ceil(shuffled.length * 0.3);
+  svSample = shuffled.slice(0, n);
+  svCode   = raw;
+  svIndex  = 0;
+  svFilter = 'all';
+  svMode   = 'fc';
 
-  // Build CSV
-  const headers = ['#','title','authors','year','journal','doi','pmid','source','abstract'];
-  const esc = v => '"' + String(v||'').replace(/"/g,'""') + '"';
-  const rows = sample.map((r, i) => [
-    i+1, r.title, r.authors, r.year, r.journal, r.doi, r.pmid, r.source, r.abstract
-  ].map(esc).join(','));
+  document.getElementById('sv-code-section').style.display   = 'none';
+  document.getElementById('sv-screen-section').style.display = 'block';
+  document.getElementById('sv-compare-btn').style.display    = 'inline-flex';
+  document.getElementById('sv-code-display').textContent     = 'Code: ' + svCode + ' · ' + n + ' records';
+  svSetMode('fc');
+  svRenderAll();
+  toast('Sample loaded — ' + n + ' records');
+}
 
-  const csv = [headers.join(','), ...rows].join('\n');
-  const blob = new Blob([csv], {type:'text/csv'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `supervisor_sample_30pct_${new Date().toISOString().slice(0,10)}.csv`;
-  a.click();
-  toast(`Exported ${sample.length} articles (30% of ${unique.length} unique records)`);
+function svResetView() {
+  document.getElementById('sv-code-section').style.display   = 'block';
+  document.getElementById('sv-screen-section').style.display = 'none';
+  document.getElementById('sv-compare-btn').style.display    = 'none';
+}
+
+function svSetMode(m) {
+  svMode = m;
+  document.getElementById('sv-fc-mode').style.display    = m === 'fc'   ? 'block' : 'none';
+  document.getElementById('sv-list-mode').style.display  = m === 'list' ? 'block' : 'none';
+  document.getElementById('sv-mode-fc-btn').className    = 'btn ' + (m === 'fc'   ? 'btn-primary' : 'btn-ghost');
+  document.getElementById('sv-mode-list-btn').className  = 'btn ' + (m === 'list' ? 'btn-primary' : 'btn-ghost');
+  if (m === 'list') svRenderList(); else svRenderCard();
+}
+
+function svSetFilter(f) {
+  svFilter = f;
+  ['all','pending','inc','exc','maybe'].forEach(k =>
+    document.getElementById('svf-' + k).classList.toggle('active', k === f));
+  svIndex = 0;
+  svRenderAll();
+}
+
+function svRenderAll() {
+  svUpdateFilterCounts();
+  if (svMode === 'fc') { svRenderCard(); svRenderSidebar(); }
+  else svRenderList();
+}
+
+function svUpdateFilterCounts() {
+  document.getElementById('svf-all-n').textContent     = svSample.length;
+  document.getElementById('svf-pending-n').textContent = svSample.filter(r => !r.svDecision).length;
+  document.getElementById('svf-inc-n').textContent     = svSample.filter(r => r.svDecision === 'inc').length;
+  document.getElementById('svf-exc-n').textContent     = svSample.filter(r => r.svDecision === 'exc').length;
+  document.getElementById('svf-maybe-n').textContent   = svSample.filter(r => r.svDecision === 'maybe').length;
+}
+
+function svRenderCard() {
+  const vis     = svGetFiltered();
+  const total   = svSample.length;
+  const decided = svSample.filter(r => r.svDecision).length;
+  const pct     = total > 0 ? decided / total * 100 : 0;
+  const fill    = document.getElementById('sv-fc-progress-fill');
+  const lbl     = document.getElementById('sv-fc-progress-label');
+  if (fill) fill.style.width  = pct + '%';
+  if (lbl)  lbl.textContent   = decided + ' / ' + total;
+
+  if (!vis.length) {
+    document.getElementById('sv-fc-title').textContent    = 'No records in this filter.';
+    document.getElementById('sv-fc-num').textContent      = '';
+    document.getElementById('sv-fc-meta').innerHTML       = '';
+    document.getElementById('sv-fc-abstract').textContent = '';
+    return;
+  }
+  if (svIndex >= vis.length) svIndex = vis.length - 1;
+  if (svIndex < 0) svIndex = 0;
+  const rec = vis[svIndex];
+
+  document.getElementById('sv-fc-num').textContent = '#' + String(svIndex + 1).padStart(4,'0') + ' of ' + vis.length;
+
+  const resistanceWords = ['resistance','resistant','mutation','polymorphism','genotype','allele','haplotype','pfcrt','pfmdr','kelch','pfdhfr','pfdhps','plasmepsin','molecular marker'];
+  let hl = rec.title || 'No title';
+  resistanceWords.forEach(w => {
+    hl = hl.replace(new RegExp('(' + w + ')', 'gi'), '<mark style="background:rgba(79,142,247,0.25);color:var(--text);border-radius:2px;padding:0 2px">$1</mark>');
+  });
+  document.getElementById('sv-fc-title').innerHTML    = hl;
+  document.getElementById('sv-fc-abstract').textContent = rec.abstract ? rec.abstract.slice(0, 300) + (rec.abstract.length > 300 ? '…' : '') : '';
+
+  const dec = rec.svDecision;
+  let meta  = '';
+  if (rec.year) meta += `<span class="meta-tag meta-year">${rec.year}</span>`;
+  if (dec)      meta += `<span class="decision-badge badge-${dec}">${dec.toUpperCase()}</span>`;
+  if (rec.titleDecision) meta += `<span style="font-family:var(--mono);font-size:10px;color:var(--text3);background:var(--surface2);padding:2px 6px;border-radius:4px;border:1px solid var(--border2)">YOU: ${rec.titleDecision.toUpperCase()}</span>`;
+  document.getElementById('sv-fc-meta').innerHTML = meta;
+  document.getElementById('sv-fc-card').className  = 'flashcard' + (dec ? ' flash-' + dec : '');
+
+  // Highlight active sidebar item
+  document.querySelectorAll('#sv-fc-sidebar-list .sidebar-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.id === rec.id));
+}
+
+function svRenderSidebar() {
+  const vis = svGetFiltered();
+  const cur = vis[svIndex];
+  const container = document.getElementById('sv-fc-sidebar-list');
+  if (!container) return;
+  const slice = vis.slice(Math.max(0, svIndex - 10), svIndex + 70);
+  container.innerHTML = slice.map(rec => {
+    const dec    = rec.svDecision;
+    const active = cur && rec.id === cur.id ? 'active' : '';
+    return `<div class="sidebar-item ${dec ? 'si-' + dec : ''} ${active}" data-id="${rec.id}" onclick="svJumpTo('${rec.id}')">
+      <div class="sidebar-item-title">${rec.title || 'No title'}</div>
+      <div class="sidebar-item-meta">
+        ${rec.year ? `<span class="meta-tag meta-year" style="font-size:9px">${rec.year}</span>` : ''}
+        ${dec ? `<span class="decision-badge badge-${dec}" style="font-size:9px">${dec.toUpperCase()}</span>` : ''}
+        ${rec.titleDecision ? `<span style="font-family:var(--mono);font-size:9px;color:var(--text3)">you:${rec.titleDecision.toUpperCase()}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function svJumpTo(id) {
+  const vis = svGetFiltered();
+  const idx = vis.findIndex(r => r.id === id);
+  if (idx >= 0) { svIndex = idx; svRenderCard(); svRenderSidebar(); }
+}
+
+function svDecide(dec) {
+  const vis = svGetFiltered();
+  if (!vis.length) return;
+  const rec = vis[svIndex];
+  rec.svDecision = dec;
+
+  const card     = document.getElementById('sv-fc-card');
+  const flyClass = dec === 'inc' ? 'fc-fly-right' : dec === 'exc' ? 'fc-fly-left' : 'fc-fly-up';
+  const inClass  = dec === 'inc' ? 'fc-in-right'  : dec === 'exc' ? 'fc-in-left'  : 'fc-in-down';
+  card.classList.add(flyClass);
+  setTimeout(() => {
+    const nextVis = svGetFiltered();
+    if (svFilter === 'pending') {
+      if (svIndex >= nextVis.length) svIndex = Math.max(0, nextVis.length - 1);
+    } else {
+      svIndex = Math.min(svIndex + 1, nextVis.length - 1);
+    }
+    card.className = 'flashcard ' + inClass;
+    svRenderAll();
+    setTimeout(() => { const c = document.getElementById('sv-fc-card'); if (c) c.classList.remove(inClass); }, 250);
+  }, 260);
+}
+
+function svUndo() {
+  const vis = svGetFiltered();
+  if (svIndex > 0) svIndex--;
+  const rec = vis[svIndex];
+  if (rec) rec.svDecision = null;
+  svRenderAll();
+}
+
+function svSkip() {
+  const vis = svGetFiltered();
+  svIndex = Math.min(svIndex + 1, vis.length - 1);
+  svRenderCard(); svRenderSidebar();
+}
+
+function svRenderList() {
+  const vis = svGetFiltered();
+  const container = document.getElementById('sv-list');
+  if (!container) return;
+  if (!vis.length) {
+    container.innerHTML = '<div style="font-family:var(--mono);font-size:12px;color:var(--text3);padding:24px">No records.</div>';
+    return;
+  }
+  container.innerHTML = vis.map((rec, i) => {
+    const dec    = rec.svDecision;
+    const you    = rec.titleDecision;
+    const match  = dec && you ? (dec === you ? '✓ agree' : '✗ disagree') : '';
+    const mColor = match === '✓ agree' ? 'var(--inc)' : match === '✗ disagree' ? 'var(--exc)' : 'var(--text3)';
+    return `<div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);width:32px;flex-shrink:0;padding-top:2px">${i+1}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;line-height:1.4;margin-bottom:4px">${rec.title || 'No title'}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          ${rec.year ? `<span class="meta-tag meta-year" style="font-size:10px">${rec.year}</span>` : ''}
+          ${you ? `<span class="decision-badge badge-${you}" style="font-size:10px">YOU: ${you.toUpperCase()}</span>` : `<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">you: —</span>`}
+          ${dec ? `<span class="decision-badge badge-${dec}" style="font-size:10px">SV: ${dec.toUpperCase()}</span>` : `<span style="font-family:var(--mono);font-size:10px;color:var(--text3)">sv: pending</span>`}
+          ${match ? `<span style="font-family:var(--mono);font-size:10px;color:${mColor}">${match}</span>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button onclick="svListDecide('${rec.id}','exc')"   class="btn btn-ghost" style="font-size:10px;padding:3px 8px;color:var(--exc)">✕</button>
+        <button onclick="svListDecide('${rec.id}','maybe')" class="btn btn-ghost" style="font-size:10px;padding:3px 8px">?</button>
+        <button onclick="svListDecide('${rec.id}','inc')"   class="btn btn-ghost" style="font-size:10px;padding:3px 8px;color:var(--inc)">✓</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function svListDecide(id, dec) {
+  const rec = svSample.find(r => r.id === id);
+  if (rec) { rec.svDecision = dec; svRenderAll(); }
+}
+
+// ── COMPARE ───────────────────────────────────────────────────────────────────
+function svShowCompare() {
+  const decided = svSample.filter(r => r.svDecision);
+  if (!decided.length) { toast('No supervisor decisions yet — screen some records first'); return; }
+
+  const agree = [], youIncSvExc = [], youExcSvInc = [], other = [];
+  svSample.forEach(rec => {
+    const sv  = rec.svDecision;
+    const you = rec.titleDecision;
+    if (!sv || !you) return;
+    if (sv === you) agree.push(rec);
+    else if (you === 'inc' && sv === 'exc') youIncSvExc.push(rec);
+    else if (you === 'exc' && sv === 'inc') youExcSvInc.push(rec);
+    else other.push(rec);
+  });
+
+  const compared = agree.length + youIncSvExc.length + youExcSvInc.length + other.length;
+  const pct   = compared > 0 ? Math.round(agree.length / compared * 100) : 0;
+  const kappa = svCohenKappa();
+  const pctColor = pct >= 80 ? 'var(--inc)' : pct >= 60 ? '#f5a623' : 'var(--exc)';
+
+  const rows = (recs) => recs.map(rec =>
+    `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;line-height:1.5">
+      <div>${rec.title || 'No title'}</div>
+      <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+        ${rec.year ? `<span class="meta-tag meta-year" style="font-size:10px">${rec.year}</span>` : ''}
+        <span class="decision-badge badge-${rec.titleDecision}" style="font-size:10px">YOU: ${(rec.titleDecision||'—').toUpperCase()}</span>
+        <span class="decision-badge badge-${rec.svDecision}" style="font-size:10px">SV: ${(rec.svDecision||'—').toUpperCase()}</span>
+      </div>
+    </div>`).join('');
+
+  const sections = [
+    youIncSvExc.length ? `<div style="margin-top:20px"><div style="font-family:var(--mono);font-size:10px;color:var(--exc);letter-spacing:.08em;margin-bottom:8px">YOU INCLUDED · SUPERVISOR EXCLUDED (${youIncSvExc.length})</div>${rows(youIncSvExc)}</div>` : '',
+    youExcSvInc.length ? `<div style="margin-top:20px"><div style="font-family:var(--mono);font-size:10px;color:var(--inc);letter-spacing:.08em;margin-bottom:8px">YOU EXCLUDED · SUPERVISOR INCLUDED (${youExcSvInc.length})</div>${rows(youExcSvInc)}</div>` : '',
+    other.length       ? `<div style="margin-top:20px"><div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:.08em;margin-bottom:8px">OTHER DISAGREEMENTS (${other.length})</div>${rows(other)}</div>` : '',
+  ].filter(Boolean).join('');
+
+  const modal = document.createElement('div');
+  modal.id = 'sv-compare-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px';
+  modal.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border2);border-radius:12px;width:100%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:20px 24px;border-bottom:1px solid var(--border)">
+        <div style="font-family:var(--mono);font-size:12px;color:var(--text2);letter-spacing:.04em">AGREEMENT ANALYSIS</div>
+        <button onclick="document.getElementById('sv-compare-modal').remove()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;line-height:1">×</button>
+      </div>
+      <div style="padding:20px 24px;overflow-y:auto;flex:1">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:14px;text-align:center">
+            <div style="font-family:var(--mono);font-size:28px;color:${pctColor}">${pct}%</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px">OVERALL AGREEMENT</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:14px;text-align:center">
+            <div style="font-family:var(--mono);font-size:28px;color:var(--text)">${kappa}</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px">COHEN'S κ</div>
+          </div>
+          <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:14px;text-align:center">
+            <div style="font-family:var(--mono);font-size:28px;color:var(--text)">${agree.length}/${compared}</div>
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:4px">RECORDS AGREED</div>
+          </div>
+        </div>
+        <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin-bottom:12px">
+          ${agree.length      ? `<div style="flex:${agree.length};background:var(--inc);opacity:.8"></div>` : ''}
+          ${youIncSvExc.length? `<div style="flex:${youIncSvExc.length};background:var(--exc)"></div>` : ''}
+          ${youExcSvInc.length? `<div style="flex:${youExcSvInc.length};background:#f5a623"></div>` : ''}
+          ${other.length      ? `<div style="flex:${other.length};background:var(--text3)"></div>` : ''}
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;font-family:var(--mono);font-size:10px;color:var(--text3)">
+          <span><span style="color:var(--inc)">■</span> Agree ${agree.length}</span>
+          <span><span style="color:var(--exc)">■</span> You INC · SV EXC ${youIncSvExc.length}</span>
+          <span><span style="color:#f5a623">■</span> You EXC · SV INC ${youExcSvInc.length}</span>
+          <span><span style="color:var(--text3)">■</span> Other ${other.length}</span>
+        </div>
+        ${sections || '<div style="font-family:var(--mono);font-size:12px;color:var(--inc);padding:20px 0">✓ Perfect agreement on all screened records!</div>'}
+      </div>
+    </div>`;
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function svCohenKappa() {
+  const pairs = svSample.filter(r => r.svDecision && r.titleDecision);
+  if (!pairs.length) return '—';
+  const cats = ['inc','exc','maybe'];
+  let po = pairs.filter(r => r.svDecision === r.titleDecision).length / pairs.length;
+  let pe = 0;
+  cats.forEach(c => {
+    pe += (pairs.filter(r => r.titleDecision === c).length / pairs.length) *
+          (pairs.filter(r => r.svDecision    === c).length / pairs.length);
+  });
+  if (pe >= 1) return '1.00';
+  return ((po - pe) / (1 - pe)).toFixed(2);
 }
 
 // ── PRE-SCREEN ALL (instant, no API) ─────────────────────────────────────────
