@@ -777,11 +777,15 @@
     <span>04 · Abstract</span>
     <span class="tab-count" id="tc-abstract">0</span>
   </div>
+  <div class="tab" onclick="switchTab('fulltext')" id="tab-fulltext">
+    <span>05 · Full Text</span>
+    <span class="tab-count" id="tc-fulltext">0</span>
+  </div>
   <div class="tab" onclick="switchTab('prisma')" id="tab-prisma">
-    <span>05 · PRISMA</span>
+    <span>06 · PRISMA</span>
   </div>
   <div class="tab" onclick="switchTab('qc')" id="tab-qc">
-    <span>06 · QC</span>
+    <span>07 · QC</span>
   </div>
 </div>
 
@@ -1100,6 +1104,84 @@
     </div>
   </div>
 
+  <!-- FULL TEXT PANEL -->
+  <div class="panel" id="panel-fulltext">
+    <!-- FLASHCARD VIEW -->
+    <div id="fulltext-flashcard-view">
+      <div class="flashcard-layout">
+        <div class="flashcard-main">
+          <div class="flashcard-progress-wrap">
+            <div class="flashcard-progress-bar"><div class="flashcard-progress-fill" id="ft-progress-fill"></div></div>
+            <div class="flashcard-progress-label" id="ft-progress-label">0 / 0</div>
+          </div>
+          <div class="flashcard" id="ft-card">
+            <div class="fc-num" id="ft-num">#0001</div>
+            <div class="fc-title" id="ft-title">Loading...</div>
+            <div class="fc-meta" id="ft-meta"></div>
+            <div id="ft-abstract" style="font-size:13px;line-height:1.7;color:var(--text2);margin-top:12px;max-height:280px;overflow-y:auto;padding-right:4px"></div>
+            <div id="ft-links" style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"></div>
+            <div id="ft-notes-wrap" style="margin-top:12px">
+              <textarea id="ft-notes" placeholder="Full-text notes (optional)..." rows="3"
+                style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;resize:vertical"
+                oninput="ftSaveNotes()"></textarea>
+            </div>
+          </div>
+          <div class="flashcard-keys">
+            <div class="key-hint key-exc" onclick="ftDecide('exc')"><span class="key-badge">A</span> Exclude</div>
+            <div class="key-hint key-maybe" onclick="ftDecide('maybe')"><span class="key-badge">W</span> Maybe</div>
+            <div class="key-hint key-inc" onclick="ftDecide('inc')"><span class="key-badge">D</span> Include</div>
+          </div>
+          <div class="flashcard-actions">
+            <button class="btn btn-ghost" style="font-size:11px" onclick="ftUndo()">↩ Undo <span style="opacity:.5;font-size:9px">Z</span></button>
+            <button class="btn btn-ghost" style="font-size:11px" onclick="ftJumpNextUndecided()">⏭ Next Undecided <span style="opacity:.5;font-size:9px">S</span></button>
+            <button class="btn btn-ghost" style="font-size:11px" onclick="ftToggleListView()">☰ List View</button>
+          </div>
+        </div>
+        <div class="flashcard-sidebar" id="ft-sidebar">
+          <div class="sidebar-header">
+            <div style="font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:0.06em;margin-bottom:6px">FULL TEXT REVIEW</div>
+            <div class="sidebar-filters">
+              <button class="filter-btn active-all" id="ftf-all" onclick="ftSetFilter('all')">All</button>
+              <button class="filter-btn" id="ftf-pending" onclick="ftSetFilter('pending')">Pending</button>
+              <button class="filter-btn" id="ftf-inc" onclick="ftSetFilter('inc')">Inc</button>
+              <button class="filter-btn" id="ftf-exc" onclick="ftSetFilter('exc')">Exc</button>
+              <button class="filter-btn" id="ftf-maybe" onclick="ftSetFilter('maybe')">Maybe</button>
+            </div>
+            <input class="search-box" id="fulltext-search" placeholder="Search..." oninput="ftRenderSidebar()" style="font-size:11px;padding:6px 10px;margin-top:6px">
+          </div>
+          <div class="sidebar-list" id="ft-sidebar-list"></div>
+          <div class="sidebar-footer">
+            <button class="btn btn-ghost" style="font-size:10px;width:100%;margin-bottom:6px" onclick="ftToggleListView()">☰ Full List View</button>
+            <button class="btn btn-ghost" style="font-size:10px;width:100%" onclick="exportCSV('fulltext')">⬇ Export Full Text Results</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- LIST VIEW -->
+    <div id="fulltext-list-view" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-ghost" style="font-size:11px" onclick="ftToggleListView()">← Back to Flashcard</button>
+        <input class="search-box" id="fulltext-list-search" placeholder="Search..." oninput="renderFulltextList()" style="flex:1;min-width:140px">
+        <button class="filter-btn active-all" id="ftlf-all" onclick="ftListSetFilter('all')">All</button>
+        <button class="filter-btn" id="ftlf-pending" onclick="ftListSetFilter('pending')">Pending</button>
+        <button class="filter-btn" id="ftlf-inc" onclick="ftListSetFilter('inc')">Included</button>
+        <button class="filter-btn" id="ftlf-exc" onclick="ftListSetFilter('exc')">Excluded</button>
+        <button class="filter-btn" id="ftlf-maybe" onclick="ftListSetFilter('maybe')">Maybe</button>
+        <select id="ft-list-page-size" onchange="renderFulltextList()" style="font-family:var(--mono);font-size:11px;padding:6px 10px;border:1px solid var(--border2);background:var(--surface);color:var(--text2);border-radius:4px">
+          <option value="25">25 per page</option>
+          <option value="50" selected>50 per page</option>
+          <option value="100">100 per page</option>
+        </select>
+      </div>
+      <div id="ft-list-pages" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
+      <div id="fulltext-list"></div>
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <button class="btn btn-ghost" onclick="exportCSV('fulltext')">Export Full Text Results</button>
+        <button class="btn btn-ghost" onclick="exportCSV('all')">Export All Decisions</button>
+      </div>
+    </div>
+  </div>
+
   <!-- QC PANEL -->
   <div class="panel" id="panel-qc">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -1162,14 +1244,14 @@
               <div class="fc-title" id="sv-fc-title">Load a sample code to begin</div>
               <div id="sv-fc-abstract" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-top:12px;max-height:120px;overflow:hidden;line-height:1.6"></div>
             </div>
-            <div class="fc-actions" style="margin-top:12px">
-              <button class="btn-decide btn-exc" onclick="svDecide('exc')">✕ Exclude</button>
-              <button class="btn-decide btn-maybe" onclick="svDecide('maybe')">? Maybe</button>
-              <button class="btn-decide btn-inc" onclick="svDecide('inc')">✓ Include</button>
+            <div class="flashcard-keys" style="margin-top:12px">
+              <div class="key-hint key-exc" onclick="svDecide('exc')"><span class="key-badge">A</span> Exclude</div>
+              <div class="key-hint key-maybe" onclick="svDecide('maybe')"><span class="key-badge">W</span> Maybe</div>
+              <div class="key-hint key-inc" onclick="svDecide('inc')"><span class="key-badge">D</span> Include</div>
             </div>
             <div style="display:flex;gap:8px;margin-top:8px;justify-content:center">
-              <button class="btn btn-ghost" style="font-size:11px" onclick="svUndo()">↩ Undo</button>
-              <button class="btn btn-ghost" style="font-size:11px" onclick="svSkip()">Skip →</button>
+              <button class="btn btn-ghost" style="font-size:11px" onclick="svUndo()">↩ Undo <span style="opacity:.5;font-size:9px">Z</span></button>
+              <button class="btn btn-ghost" style="font-size:11px" onclick="svSkip()">Skip → <span style="opacity:.5;font-size:9px">S</span></button>
             </div>
           </div>
           <!-- Sidebar -->
@@ -1436,6 +1518,8 @@ function normalizeRecord(raw, source) {
     titleDecision: null,
     abstractDecision: null,
     abstractReason: null,
+    ftDecision: null,
+    ftNotes: '',
   };
 }
 
@@ -2035,6 +2119,20 @@ document.addEventListener('keydown', function(e) {
   if (e.ctrlKey && e.shiftKey && e.key === 'P') { e.preventDefault(); runPreScreenAll(); return; }
   if (e.ctrlKey && e.shiftKey && e.key === 'A') { e.preventDefault(); applyPreScreenDecisions(); return; }
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (activeTab === 'qc' && document.getElementById('sv-screen-section') && document.getElementById('sv-screen-section').style.display !== 'none' && document.getElementById('sv-fc-mode') && document.getElementById('sv-fc-mode').style.display !== 'none') {
+    if (e.key === 'a' || e.key === 'A') { e.preventDefault(); svDecide('exc'); return; }
+    if (e.key === 'd' || e.key === 'D') { e.preventDefault(); svDecide('inc'); return; }
+    if (e.key === 'w' || e.key === 'W') { e.preventDefault(); svDecide('maybe'); return; }
+    if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); svUndo(); return; }
+    if (e.key === 's' || e.key === 'S') { e.preventDefault(); svSkip(); return; }
+  }
+  if (activeTab === 'fulltext' && ftFcMode) {
+    if (e.key === 'a' || e.key === 'A') { e.preventDefault(); ftDecide('exc'); return; }
+    if (e.key === 'd' || e.key === 'D') { e.preventDefault(); ftDecide('inc'); return; }
+    if (e.key === 'w' || e.key === 'W') { e.preventDefault(); ftDecide('maybe'); return; }
+    if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); ftUndo(); return; }
+    if (e.key === 's' || e.key === 'S') { e.preventDefault(); ftJumpNextUndecided(); return; }
+  }
   if (activeTab === 'abstract' && abFcMode) {
     if (e.key === 'a' || e.key === 'A') { e.preventDefault(); abDecide('exc'); return; }
     if (e.key === 'd' || e.key === 'D') { e.preventDefault(); abDecide('inc'); return; }
@@ -2130,14 +2228,15 @@ function switchTab(tab) {
   document.getElementById('panel-' + tab).classList.add('active');
   document.getElementById('tab-' + tab).classList.add('active');
 
-  const phases = { import:'phase-import', dedup:'phase-import', title:'phase-title', abstract:'phase-abstract', qc:'phase-title', prisma:'phase-import' };
+  const phases = { import:'phase-import', dedup:'phase-import', title:'phase-title', abstract:'phase-abstract', fulltext:'phase-abstract', qc:'phase-title', prisma:'phase-import' };
   const badge = document.getElementById('phase-badge');
   badge.className = 'phase-badge ' + (phases[tab] || 'phase-import');
-  const labels = { import:'IMPORT', dedup:'DEDUP', title:'TITLE SCREEN', abstract:'ABSTRACT SCREEN', qc:'QC REVIEW', prisma:'PRISMA' };
+  const labels = { import:'IMPORT', dedup:'DEDUP', title:'TITLE SCREEN', abstract:'ABSTRACT SCREEN', fulltext:'FULL TEXT', qc:'QC REVIEW', prisma:'PRISMA' };
   badge.textContent = labels[tab] || tab.toUpperCase();
 
   if (tab === 'title') fcInit();
   if (tab === 'abstract') abInit();
+  if (tab === 'fulltext') ftInit();
   if (tab === 'prisma') renderPrisma();
   if (tab === 'qc') svTabInit();
   updateStats();
@@ -2581,10 +2680,203 @@ function renderAbstractList() {
   container.innerHTML = slice.map((rec, i) => buildRecordHTML(rec, abListPage * pageSize + i, 'abstract')).join('');
 }
 
+// ============================================================
+// FULL TEXT FLASHCARD SYSTEM
+// ============================================================
+let ftFcMode = true;
+let ftFcIndex = 0;
+let ftFcRecords = [];
+let ftFilter = 'all';
+let ftListFilterState = 'all';
+let ftListPage = 0;
+
+function ftGetRecords() {
+  let base = records.filter(r => !r.isDuplicate && r.abstractDecision === 'inc');
+  const q = (document.getElementById('fulltext-search')?.value || '').toLowerCase();
+  if (q) base = base.filter(r => (r.title||'').toLowerCase().includes(q) || (r.abstract||'').toLowerCase().includes(q));
+  if (ftFilter === 'pending') return base.filter(r => !r.ftDecision);
+  if (ftFilter === 'inc')     return base.filter(r => r.ftDecision === 'inc');
+  if (ftFilter === 'exc')     return base.filter(r => r.ftDecision === 'exc');
+  if (ftFilter === 'maybe')   return base.filter(r => r.ftDecision === 'maybe');
+  return base;
+}
+
+function ftInit() {
+  ftFcRecords = ftGetRecords();
+  const firstPending = ftFcRecords.findIndex(r => !r.ftDecision);
+  ftFcIndex = firstPending >= 0 ? firstPending : 0;
+  ftRenderCard();
+  ftRenderSidebar();
+}
+
+function ftRenderCard() {
+  const total = ftFcRecords.length;
+  const decided = ftFcRecords.filter(r => r.ftDecision).length;
+  const pct = total > 0 ? (decided / total) * 100 : 0;
+  const fill = document.getElementById('ft-progress-fill');
+  if (fill) fill.style.width = pct + '%';
+  const label = document.getElementById('ft-progress-label');
+  if (label) label.textContent = decided + ' / ' + total;
+
+  if (!total) {
+    const card = document.getElementById('ft-card');
+    if (card) card.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-title">No articles to review</div><div class="empty-state-sub">Include articles in the Abstract tab first.</div></div>';
+    return;
+  }
+
+  if (ftFcIndex < 0) ftFcIndex = 0;
+  if (ftFcIndex >= ftFcRecords.length) ftFcIndex = ftFcRecords.length - 1;
+  const rec = ftFcRecords[ftFcIndex];
+  const dec = rec.ftDecision;
+
+  document.getElementById('ft-num').textContent = '#' + String(ftFcIndex + 1).padStart(4, '0') + ' · ' + (rec.source||'').toUpperCase();
+  document.getElementById('ft-title').textContent = rec.title || '(no title)';
+
+  const metaParts = [];
+  if (rec.authors) metaParts.push(rec.authors);
+  if (rec.year) metaParts.push(rec.year);
+  if (rec.journal) metaParts.push(rec.journal);
+  document.getElementById('ft-meta').textContent = metaParts.join(' · ');
+
+  document.getElementById('ft-abstract').textContent = rec.abstract || '(no abstract)';
+
+  // Links
+  const linksEl = document.getElementById('ft-links');
+  let links = '';
+  if (rec.doi) links += '<a href="https://doi.org/' + rec.doi + '" target="_blank" class="btn btn-ghost" style="font-size:11px;padding:4px 10px">DOI ↗</a>';
+  if (rec.pmid) links += '<a href="https://pubmed.ncbi.nlm.nih.gov/' + rec.pmid + '/" target="_blank" class="btn btn-ghost" style="font-size:11px;padding:4px 10px">PubMed ↗</a>';
+  linksEl.innerHTML = links;
+
+  // Notes
+  const notesEl = document.getElementById('ft-notes');
+  if (notesEl) notesEl.value = rec.ftNotes || '';
+
+  // Card border colour
+  const card = document.getElementById('ft-card');
+  card.style.borderColor = dec === 'inc' ? 'var(--inc)' : dec === 'exc' ? 'var(--exc)' : dec === 'maybe' ? 'var(--maybe)' : 'var(--border)';
+
+  ftRenderSidebar();
+}
+
+function ftSaveNotes() {
+  if (!ftFcRecords.length) return;
+  const rec = ftFcRecords[ftFcIndex];
+  if (!rec) return;
+  rec.ftNotes = document.getElementById('ft-notes')?.value || '';
+  save();
+}
+
+function ftDecide(dec) {
+  if (!ftFcRecords.length) return;
+  const rec = ftFcRecords[ftFcIndex];
+  rec.ftDecision = dec;
+  save(); updateStats();
+  if (ftFcIndex < ftFcRecords.length - 1) ftFcIndex++;
+  ftRenderCard();
+}
+
+function ftUndo() {
+  if (!ftFcRecords.length) return;
+  const rec = ftFcRecords[ftFcIndex];
+  if (!rec) return;
+  rec.ftDecision = null;
+  if (ftFcIndex > 0) ftFcIndex--;
+  save(); updateStats(); ftRenderCard();
+}
+
+function ftJumpNextUndecided() {
+  const next = ftFcRecords.findIndex((r, i) => i > ftFcIndex && !r.ftDecision);
+  if (next >= 0) { ftFcIndex = next; ftRenderCard(); ftRenderSidebar(); }
+}
+
+function ftSetFilter(f) {
+  ftFilter = f;
+  ['all','pending','inc','exc','maybe'].forEach(k => {
+    const el = document.getElementById('ftf-' + k);
+    if (el) el.className = 'filter-btn' + (k === f ? ' active-' + k : '');
+  });
+  ftFcRecords = ftGetRecords();
+  ftFcIndex = 0; ftRenderCard(); ftRenderSidebar();
+}
+
+function ftRenderSidebar() {
+  const list = document.getElementById('ft-sidebar-list');
+  if (!list) return;
+  const recs = ftFcRecords;
+  const start = Math.max(0, ftFcIndex - 10);
+  const end   = Math.min(recs.length, ftFcIndex + 70);
+  list.innerHTML = recs.slice(start, end).map((r, idx) => {
+    const dec = r.ftDecision;
+    const active = (start + idx) === ftFcIndex ? ' active' : '';
+    return '<div class="sidebar-item si-' + (dec||'none') + active + '" data-id="' + r.id + '" onclick="ftFcIndex=' + (start+idx) + ';ftRenderCard()">' +
+      '<div class="si-title">' + (r.title||'') + '</div>' +
+      '<div style="display:flex;gap:4px;margin-top:2px">' +
+      (r.year ? '<span class="meta-tag meta-year" style="font-size:9px;padding:1px 4px">' + r.year + '</span>' : '') +
+      (dec ? '<span class="decision-badge badge-' + dec + '" style="font-size:9px;padding:1px 5px">' + dec.toUpperCase() + '</span>' : '') +
+      '</div></div>';
+  }).join('');
+}
+
+function ftToggleListView() {
+  ftFcMode = !ftFcMode;
+  document.getElementById('fulltext-flashcard-view').style.display = ftFcMode ? '' : 'none';
+  document.getElementById('fulltext-list-view').style.display = ftFcMode ? 'none' : '';
+  if (!ftFcMode) renderFulltextList();
+}
+
+function ftListSetFilter(f) {
+  ftListFilterState = f;
+  ftListPage = 0;
+  ['all','pending','inc','exc','maybe'].forEach(k => {
+    const el = document.getElementById('ftlf-' + k);
+    if (el) el.className = 'filter-btn' + (k === f ? ' active-' + k : '');
+  });
+  renderFulltextList();
+}
+
+function renderFulltextList() {
+  const q = (document.getElementById('fulltext-list-search')?.value || '').toLowerCase();
+  const pageSize = parseInt(document.getElementById('ft-list-page-size')?.value || '50');
+  let recs = records.filter(r => !r.isDuplicate && r.abstractDecision === 'inc');
+  if (q) recs = recs.filter(r => (r.title||'').toLowerCase().includes(q) || (r.abstract||'').toLowerCase().includes(q));
+  if (ftListFilterState === 'pending') recs = recs.filter(r => !r.ftDecision);
+  if (ftListFilterState === 'inc')     recs = recs.filter(r => r.ftDecision === 'inc');
+  if (ftListFilterState === 'exc')     recs = recs.filter(r => r.ftDecision === 'exc');
+  if (ftListFilterState === 'maybe')   recs = recs.filter(r => r.ftDecision === 'maybe');
+  const totalPages = Math.ceil(recs.length / pageSize);
+  if (ftListPage >= totalPages) ftListPage = 0;
+  const pageContainer = document.getElementById('ft-list-pages');
+  if (pageContainer) {
+    let btns = '';
+    for (let i = 0; i < totalPages; i++) btns += '<button class="page-btn ' + (i === ftListPage ? 'active' : '') + '" onclick="ftListPage=' + i + ';renderFulltextList()">' + (i+1) + '</button>';
+    pageContainer.innerHTML = btns;
+  }
+  const slice = recs.slice(ftListPage * pageSize, (ftListPage + 1) * pageSize);
+  const container = document.getElementById('fulltext-list');
+  if (!container) return;
+  if (!slice.length) { container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-title">No records to show</div></div>'; return; }
+  container.innerHTML = slice.map((rec, i) => {
+    const dec = rec.ftDecision;
+    return '<div class="record-card' + (dec ? ' decision-' + dec : '') + '" style="margin-bottom:10px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:6px">' +
+      '<div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:6px">' + (rec.title||'(no title)') + '</div>' +
+      '<div style="font-size:11px;color:var(--text3);margin-bottom:8px">' + [rec.authors, rec.year, rec.journal].filter(Boolean).join(' · ') + '</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+      '<button class="btn ' + (dec==='inc'?'btn-primary':'btn-ghost') + '" style="font-size:11px;padding:4px 10px" onclick="records.find(r=>r.id===\'' + rec.id + '\').ftDecision=\'inc\';save();updateStats();renderFulltextList()">Include</button>' +
+      '<button class="btn ' + (dec==='maybe'?'btn-primary':'btn-ghost') + '" style="font-size:11px;padding:4px 10px" onclick="records.find(r=>r.id===\'' + rec.id + '\').ftDecision=\'maybe\';save();updateStats();renderFulltextList()">Maybe</button>' +
+      '<button class="btn ' + (dec==='exc'?'btn-primary':'btn-ghost') + '" style="font-size:11px;padding:4px 10px" onclick="records.find(r=>r.id===\'' + rec.id + '\').ftDecision=\'exc\';save();updateStats();renderFulltextList()">Exclude</button>' +
+      (rec.doi ? '<a href="https://doi.org/' + rec.doi + '" target="_blank" class="btn btn-ghost" style="font-size:11px;padding:4px 10px">DOI ↗</a>' : '') +
+      (rec.pmid ? '<a href="https://pubmed.ncbi.nlm.nih.gov/' + rec.pmid + '/" target="_blank" class="btn btn-ghost" style="font-size:11px;padding:4px 10px">PubMed ↗</a>' : '') +
+      (dec ? '<span class="decision-badge badge-' + dec + '" style="font-size:10px;padding:2px 8px">' + dec.toUpperCase() + '</span>' : '') +
+      '</div>' +
+      (rec.ftNotes ? '<div style="margin-top:8px;font-size:11px;color:var(--text2);font-style:italic">' + rec.ftNotes + '</div>' : '') +
+      '</div>';
+  }).join('');
+}
+
 function isPreScreened(pred) {
   if (!pred || !pred.reason) return false;
   const r = pred.reason;
-  return r.startsWith('I2+I3:') || r.startsWith('Hard exclude:') || 
+  return r.startsWith('I2+I3:') || r.startsWith('Hard exclude:') ||
          r.startsWith('E1:') || r.startsWith('E2:') || r.startsWith('E3:') || r.startsWith('E4:') ||
          r.startsWith('West African country') || r.startsWith('No definitive');
 }
@@ -3673,6 +3965,7 @@ function updateStats() {
   document.getElementById('tc-dedup').textContent = dups;
   document.getElementById('tc-title').textContent = screen;
   document.getElementById('tc-abstract').textContent = records.filter(r => !r.isDuplicate && (r.titleDecision === 'inc' || r.titleDecision === 'maybe')).length;
+  document.getElementById('tc-fulltext').textContent = records.filter(r => !r.isDuplicate && r.abstractDecision === 'inc').length;
   
   if (total > 0) document.getElementById('btn-to-dedup').disabled = false;
 }
@@ -3684,11 +3977,13 @@ function exportCSV(type) {
     rows = records.filter(r => !r.isDuplicate && r.titleDecision);
   } else if (type === 'final') {
     rows = records.filter(r => !r.isDuplicate && r.abstractDecision === 'inc');
+  } else if (type === 'fulltext') {
+    rows = records.filter(r => !r.isDuplicate && r.abstractDecision === 'inc');
   } else {
     rows = records;
   }
-  
-  const headers = ['id','title','authors','year','journal','doi','pmid','source','isDuplicate','titleDecision','abstractDecision','abstractReason'];
+
+  const headers = ['id','title','authors','year','journal','doi','pmid','source','isDuplicate','titleDecision','abstractDecision','abstractReason','ftDecision','ftNotes'];
   const esc = v => '"' + String(v||'').replace(/"/g,'""') + '"';
   const csv = [headers.join(','), ...rows.map(r => headers.map(h => esc(r[h])).join(','))].join('\n');
   
