@@ -1184,9 +1184,14 @@
 
   <!-- QC PANEL -->
   <div class="panel" id="panel-qc">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:8px">
       <div style="font-family:var(--mono);font-size:12px;color:var(--text2);letter-spacing:0.04em">SUPERVISOR QC — 30% RANDOM SAMPLE</div>
-      <button class="btn btn-ghost" onclick="svShowCompare()" id="sv-compare-btn" style="font-size:11px;display:none">⚖ Compare Decisions</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="svShowCompare()" id="sv-compare-btn" style="font-size:11px;display:none">⚖ Compare Decisions</button>
+        <button class="btn btn-ghost" onclick="saveQC()" style="font-size:11px;background:var(--inc-bg);color:var(--inc);border-color:#1a4d38">💾 Save QC</button>
+        <label for="file-restore-qc" class="btn btn-ghost" style="font-size:11px;cursor:pointer;background:var(--accent-bg);color:var(--accent);border-color:#1e3a6e">📂 Load QC</label>
+        <input type="file" id="file-restore-qc" accept=".json" onchange="restoreQC(event)" style="display:none">
+      </div>
     </div>
 
     <!-- Code entry -->
@@ -1214,6 +1219,7 @@
         <div style="font-family:var(--mono);font-size:11px;color:var(--text3)" id="sv-code-display"></div>
         <div style="flex:1"></div>
         <button class="btn btn-ghost" style="font-size:11px" onclick="svResetView()">← Change Code</button>
+        <button class="btn btn-ghost" onclick="saveQC()" style="font-size:11px;background:var(--inc-bg);color:var(--inc);border-color:#1a4d38">💾 Save QC</button>
         <button id="sv-mode-fc-btn"  class="btn btn-primary" style="font-size:11px" onclick="svSetMode('fc')">Flashcard</button>
         <button id="sv-mode-list-btn" class="btn btn-ghost"  style="font-size:11px" onclick="svSetMode('list')">List</button>
       </div>
@@ -4204,11 +4210,16 @@ function svJumpTo(id) {
   if (idx >= 0) { svIndex = idx; svRenderCard(); svRenderSidebar(); }
 }
 
+let svDecisionCount = 0;
 function svDecide(dec) {
   const vis = svGetFiltered();
   if (!vis.length) return;
   const rec = vis[svIndex];
   rec.svDecision = dec;
+  svDecisionCount++;
+  if (svDecisionCount > 0 && svDecisionCount % 25 === 0) {
+    toast('💾 ' + svDecisionCount + ' decisions made — save your session!');
+  }
 
   const card     = document.getElementById('sv-fc-card');
   const flyClass = dec === 'inc' ? 'fc-fly-right' : dec === 'exc' ? 'fc-fly-left' : 'fc-fly-up';
@@ -4559,6 +4570,7 @@ function saveSession() {
     savedAt: new Date().toISOString(),
     records,
     dedupDone,
+    svCode: svCode || '',
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
@@ -4621,10 +4633,123 @@ function restoreSession(e) {
 
       // Re-initialize views
       if (dedupDone) {
-        switchTab('title');
+        // If a QC code was saved, restore the QC sample automatically and go straight to QC
+        if (parsed.svCode) {
+          svCode = parsed.svCode;
+          const inp = document.getElementById('sv-code-input');
+          if (inp) inp.value = svCode;
+          // Rebuild sample using same seed so svDecision values on records line up
+          const unique = records.filter(r => !r.isDuplicate);
+          const seed = codeToSeed(svCode);
+          const rng  = mulberry32(seed);
+          const shuffled = [...unique];
+          for (let i = shuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(rng() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+          }
+          svSample = shuffled.slice(0, Math.ceil(shuffled.length * 0.3));
+          svIndex  = 0;
+          svFilter = 'all';
+          svMode   = 'fc';
+          switchTab('qc');
+          document.getElementById('sv-code-section').style.display   = 'none';
+          document.getElementById('sv-screen-section').style.display = 'block';
+          document.getElementById('sv-compare-btn').style.display    = 'inline-flex';
+          document.getElementById('sv-code-display').textContent     = 'Code: ' + svCode + ' · ' + svSample.length + ' records';
+          svSetMode('fc');
+          svRenderAll();
+        } else {
+          switchTab('title');
+        }
       }
     } catch(err) {
       toast('Error restoring session: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// Save only QC decisions as a small standalone file
+function saveQC() {
+  if (!svCode) { toast('No QC session active — load a sample code first'); return; }
+  const decisions = records
+    .filter(r => r.svDecision != null)
+    .map(r => ({ id: r.id, svDecision: r.svDecision }));
+  if (!decisions.length) { toast('No QC decisions to save yet'); return; }
+  const payload = {
+    type: 'qc-decisions',
+    version: 1,
+    savedAt: new Date().toISOString(),
+    svCode: svCode,
+    decisions,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `sr_qc_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  toast('QC decisions saved — ' + decisions.length + ' decisions exported');
+}
+
+// Restore QC decisions from a standalone QC file into the current session
+function restoreQC(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      if (parsed.type !== 'qc-decisions' || !parsed.decisions || !parsed.svCode) {
+        toast('Not a valid QC decisions file'); return;
+      }
+      if (!records.length) {
+        toast('Load your main session first before importing QC decisions'); return;
+      }
+      // Warn if codes differ
+      if (svCode && parsed.svCode !== svCode) {
+        toast('Warning: QC code mismatch — decisions may not align with current sample');
+      }
+      // Build id→record map for fast lookup
+      const byId = {};
+      records.forEach(r => { byId[r.id] = r; });
+      let applied = 0, missed = 0;
+      parsed.decisions.forEach(d => {
+        if (byId[d.id]) {
+          byId[d.id].svDecision = d.svDecision;
+          applied++;
+        } else {
+          missed++;
+        }
+      });
+      // Restore svCode and rebuild sample if not already active
+      if (!svCode || svCode !== parsed.svCode) {
+        svCode = parsed.svCode;
+        const inp = document.getElementById('sv-code-input');
+        if (inp) inp.value = svCode;
+        const unique = records.filter(r => !r.isDuplicate);
+        const seed = codeToSeed(svCode);
+        const rng  = mulberry32(seed);
+        const shuffled = [...unique];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        svSample = shuffled.slice(0, Math.ceil(shuffled.length * 0.3));
+        svIndex  = 0; svFilter = 'all'; svMode = 'fc';
+        switchTab('qc');
+        document.getElementById('sv-code-section').style.display   = 'none';
+        document.getElementById('sv-screen-section').style.display = 'block';
+        document.getElementById('sv-compare-btn').style.display    = 'inline-flex';
+        document.getElementById('sv-code-display').textContent     = 'Code: ' + svCode + ' · ' + svSample.length + ' records';
+        svSetMode('fc');
+      }
+      svRenderAll();
+      save();
+      updateStats();
+      toast('QC restored — ' + applied + ' decisions applied' + (missed ? ', ' + missed + ' IDs not found' : ''));
+    } catch(err) {
+      toast('Error loading QC file: ' + err.message);
     }
   };
   reader.readAsText(file);
@@ -4651,6 +4776,16 @@ function toast(msg) {
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2800);
 }
+
+// Warn before closing/refreshing if there are unsaved QC decisions
+window.addEventListener('beforeunload', function(e) {
+  const svDecided = records.filter(r => r.svDecision).length;
+  const anyDecided = records.filter(r => r.titleDecision || r.abstractDecision || r.ftDecision).length;
+  if (svDecided > 0 || anyDecided > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
 
 // INIT
 load();
