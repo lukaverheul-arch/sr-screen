@@ -2391,6 +2391,46 @@ function abInit() {
   abRenderSidebar();
 }
 
+// Module-scope highlight word lists — shared by abRenderCard and abToggleFullAbstract
+const _hlResistance = [
+  // Specific gene names
+  'pfcrt','pfmdr1','pfmdr','pfkelch13','pfkelch','kelch13','kelch 13','k13','pfk13',
+  'pfdhfr','pfdhps','plasmepsin','pfpm2','pfpm3','pfatpase','pfmrp','pfnhe','pfcoronin',
+  'pfubp1','pfap2mu','pfap2-mu','kelch propeller',
+  'pvdhfr','pvdhps','pvmdr1','pvkelch','pvcrt','pmdhfr','pmdhps',
+  'pfhrp2','pfhrp3','hrp2','hrp3',
+  // Drug resistance phrases
+  'chloroquine resistance','artemisinin resistance','sulfadoxine resistance',
+  'sulfadoxine-pyrimethamine resistance','sp resistance',
+  'lumefantrine resistance','piperaquine resistance','amodiaquine resistance',
+  'mefloquine resistance','quinine resistance',
+  'chloroquine-resistant','artemisinin-resistant','multidrug-resistant',
+  'drug resistance','drug-resistant','resistance mutation','resistance marker',
+  'molecular marker','molecular surveillance','resistance genotyp','resistance allel',
+  'resistance haplotyp','resistance polymorphism','resistance profil',
+  'resistance determinant','treatment failure','selective sweep','selection pressure',
+  // Mutations by name
+  'k76t','k76','n86y','y86','c580y','f446i','r539t','i543t','m476i',
+  'dhfr mutation','dhps mutation','dhfr polymorphism','dhps polymorphism',
+  'dhfr and dhps','triple mutant','quintuple mutant','sextuple mutant',
+  // General molecular
+  'mutation','polymorphism','genotype','allele','haplotype','snp','single nucleotide',
+  'microsatellite','pcr','sequencing','whole genome','genotyping',
+  // Drugs (in context)
+  'chloroquine','artemisinin','sulfadoxine','pyrimethamine','lumefantrine',
+  'piperaquine','amodiaquine','mefloquine','quinine','artesunate','artemether',
+  'dihydroartemisinin','coartem','fansidar',
+];
+const _hlGeo = [
+  'nigeria','ghana','senegal','mali','burkina faso','benin','togo','niger',
+  'cameroon','liberia','sierra leone','gambia','mauritania','cabo verde','cape verde',
+  'guinea-bissau','ivory coast','cote d\'ivoire','equatorial guinea','chad','guinea',
+  'west africa','western africa','west african','sahel',
+  'lagos','accra','dakar','bamako','ouagadougou','yaounde','abidjan','conakry',
+  'freetown','monrovia','banjul','niamey','lome','cotonou','bissau','nouakchott',
+  'ibadan','kumasi','douala','abuja','kano',
+];
+
 function abRenderCard() {
   const total = abFcRecords.length;
   const decided = abFcRecords.filter(r => r.abstractDecision).length;
@@ -2408,45 +2448,6 @@ function abRenderCard() {
   const rec = abFcRecords[abFcIndex];
   const dec = rec.abstractDecision;
   document.getElementById('ab-num').textContent = '#' + String(abFcIndex + 1).padStart(4, '0') + ' · ' + rec.source.toUpperCase();
-  // Two-tier highlighting: blue = resistance/molecular signal; green = WA geography
-  const _hlResistance = [
-    // Specific gene names
-    'pfcrt','pfmdr1','pfmdr','pfkelch13','pfkelch','kelch13','kelch 13','k13','pfk13',
-    'pfdhfr','pfdhps','plasmepsin','pfpm2','pfpm3','pfatpase','pfmrp','pfnhe','pfcoronin',
-    'pfubp1','pfap2mu','pfap2-mu','kelch propeller',
-    'pvdhfr','pvdhps','pvmdr1','pvkelch','pvcrt','pmdhfr','pmdhps',
-    'pfhrp2','pfhrp3','hrp2','hrp3',
-    // Drug resistance phrases
-    'chloroquine resistance','artemisinin resistance','sulfadoxine resistance',
-    'sulfadoxine-pyrimethamine resistance','sp resistance',
-    'lumefantrine resistance','piperaquine resistance','amodiaquine resistance',
-    'mefloquine resistance','quinine resistance',
-    'chloroquine-resistant','artemisinin-resistant','multidrug-resistant',
-    'drug resistance','drug-resistant','resistance mutation','resistance marker',
-    'molecular marker','molecular surveillance','resistance genotyp','resistance allel',
-    'resistance haplotyp','resistance polymorphism','resistance profil',
-    'resistance determinant','treatment failure','selective sweep','selection pressure',
-    // Mutations by name
-    'k76t','k76','n86y','y86','c580y','f446i','r539t','i543t','m476i',
-    'dhfr mutation','dhps mutation','dhfr polymorphism','dhps polymorphism',
-    'dhfr and dhps','triple mutant','quintuple mutant','sextuple mutant',
-    // General molecular
-    'mutation','polymorphism','genotype','allele','haplotype','snp','single nucleotide',
-    'microsatellite','pcr','sequencing','whole genome','genotyping',
-    // Drugs (in context)
-    'chloroquine','artemisinin','sulfadoxine','pyrimethamine','lumefantrine',
-    'piperaquine','amodiaquine','mefloquine','quinine','artesunate','artemether',
-    'dihydroartemisinin','coartem','fansidar',
-  ];
-  const _hlGeo = [
-    'nigeria','ghana','senegal','mali','burkina faso','benin','togo','niger',
-    'cameroon','liberia','sierra leone','gambia','mauritania','cabo verde','cape verde',
-    'guinea-bissau','ivory coast','cote d\'ivoire','equatorial guinea','chad','guinea',
-    'west africa','western africa','west african','sahel',
-    'lagos','accra','dakar','bamako','ouagadougou','yaounde','abidjan','conakry',
-    'freetown','monrovia','banjul','niamey','lome','cotonou','bissau','nouakchott',
-    'ibadan','kumasi','douala','abuja','kano',
-  ];
   function hlText(txt) {
     let s = (txt||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     // Geo highlight first (green) — longer phrases before shorter to avoid partial overlap
@@ -2510,13 +2511,11 @@ function abToggleFullAbstract() {
     if (btn) btn.textContent = '⤢ Full abstract';
   } else {
     // Render full abstract with no height cap
-    const resistanceWords = _hlResistance;
-    const geoWords = _hlGeo;
     function hlFull(txt) {
       let s = (txt||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-      const geoSorted = [...geoWords].sort((a,b) => b.length - a.length);
+      const geoSorted = [..._hlGeo].sort((a,b) => b.length - a.length);
       geoSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'), '<mark style="background:rgba(45,212,160,0.18);color:#2dd4a0;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>'); });
-      const resSorted = [...resistanceWords].sort((a,b) => b.length - a.length);
+      const resSorted = [..._hlResistance].sort((a,b) => b.length - a.length);
       resSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'), '<mark style="background:rgba(79,142,247,0.22);color:#7ab3ff;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>'); });
       return s;
     }
@@ -2572,10 +2571,9 @@ function abDecide(dec) {
   rec.abstractDecision = dec;
   if (dec !== 'exc') rec.abstractReason = null;
   save(); updateStats();
-  if (dec === 'exc') { abRenderCard(); return; }
   const card = document.getElementById('ab-card');
-  const flyClass = dec === 'inc' ? 'fc-fly-right' : 'fc-fly-up';
-  const inClass  = dec === 'inc' ? 'fc-in-right'  : 'fc-in-down';
+  const flyClass = dec === 'inc' ? 'fc-fly-right' : dec === 'exc' ? 'fc-fly-left' : 'fc-fly-up';
+  const inClass  = dec === 'inc' ? 'fc-in-right'  : dec === 'exc' ? 'fc-in-left'  : 'fc-in-down';
   if (card) card.classList.add(flyClass);
   setTimeout(() => {
     if (abFcPendingOnly) { abFcRecords = abGetRecords(); if (abFcIndex >= abFcRecords.length) abFcIndex = Math.max(0, abFcRecords.length - 1); }
