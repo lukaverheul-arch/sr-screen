@@ -482,6 +482,90 @@
   .toast.show { opacity: 1; transform: translateY(0); }
 
 
+  /* ── ABSTRACT ANALYTICS PANEL ──────────────────────────────────────── */
+  .ab-analytics-panel {
+    width: 220px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+  }
+  .ab-analytics-panel::-webkit-scrollbar { width: 4px; }
+  .ab-analytics-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  .analytics-toggle-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 2px;
+    padding: 6px 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .analytics-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .analytics-toggle-label input { cursor: pointer; accent-color: var(--accent); }
+  .analytics-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .analytics-card-title {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .analytics-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+  }
+  .analytics-bar-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    width: 80px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .analytics-bar-track {
+    flex: 1;
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .analytics-bar-fill-rem { height: 100%; border-radius: 3px; background: var(--text3); opacity: 0.4; position: absolute; top: 0; left: 0; }
+  .analytics-bar-fill-inc { height: 100%; border-radius: 3px; background: var(--inc); position: absolute; top: 0; left: 0; }
+  .analytics-bar-count {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    width: 28px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  @media (max-width: 1100px) { .ab-analytics-panel { display: none; } }
+
   /* ── FLASHCARD TITLE SCREENING ─────────────────────────────────────── */
   .flashcard-layout {
     display: flex;
@@ -747,7 +831,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v32</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v35</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -1070,6 +1154,24 @@
             <button class="btn btn-ghost" style="font-size:10px;width:100%" onclick="exportCSV('final')">⬇ Export Results</button>
           </div>
         </div>
+
+        <!-- ANALYTICS PANEL -->
+        <div class="ab-analytics-panel" id="ab-analytics-panel">
+          <!-- Toggle checkboxes -->
+          <div class="analytics-toggle-bar">
+            <span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.06em;width:100%;margin-bottom:2px">SHOW CHARTS</span>
+            <label class="analytics-toggle-label"><input type="checkbox" id="an-tog-country" onchange="abRenderAnalytics()"> Country</label>
+            <label class="analytics-toggle-label"><input type="checkbox" id="an-tog-marker" onchange="abRenderAnalytics()"> Marker</label>
+            <label class="analytics-toggle-label"><input type="checkbox" id="an-tog-year" onchange="abRenderAnalytics()"> Year</label>
+            <label class="analytics-toggle-label"><input type="checkbox" id="an-tog-journal" onchange="abRenderAnalytics()"> Journal</label>
+          </div>
+          <!-- Chart containers — rendered by abRenderAnalytics() -->
+          <div id="an-country" style="display:none"></div>
+          <div id="an-marker" style="display:none"></div>
+          <div id="an-year" style="display:none"></div>
+          <div id="an-journal" style="display:none"></div>
+        </div>
+
       </div>
     </div>
     <!-- LIST VIEW -->
@@ -2430,6 +2532,33 @@ const _hlGeo = [
   'freetown','monrovia','banjul','niamey','lome','cotonou','bissau','nouakchott',
   'ibadan','kumasi','douala','abuja','kano',
 ];
+// Amber tier — hard-include signals: extractable data, sample types, genotyping methods
+const _hlInclude = [
+  // Sample collection — confirms human field samples
+  'dried blood spot','dried blood spots','dbs','blood sample','blood samples',
+  'venous blood','finger prick','fingerprick','capillary blood',
+  'clinical isolate','clinical isolates','field isolate','field isolates',
+  'patient sample','patient samples','human isolate','human isolates',
+  'archived sample','archived samples','stored sample','stored samples',
+  'filter paper','filter papers',
+  // Genotyping / sequencing methods — confirms molecular data
+  'sanger sequencing','whole genome sequencing','wgs','next generation sequencing',
+  'next-generation sequencing','ngs','deep sequencing','amplicon sequencing',
+  'high-resolution melting','hrm','restriction fragment','rflp',
+  'real-time pcr','real time pcr','quantitative pcr','qpcr','rt-pcr',
+  'allele-specific pcr','allele specific pcr','nested pcr','multiplex pcr',
+  'mass spectrometry','mass spec','luminex','sequenom',
+  'microsatellite genotyping','snp genotyping',
+  // Prevalence / frequency data — confirms extractable numbers
+  'prevalence','frequency','proportion','allele frequency','mutant frequency',
+  'mutation frequency','resistance frequency','wild type','wildtype','wild-type',
+  'sample size','n =','n=','isolates were','samples were genotyped','were sequenced',
+  'were genotyped','were analysed','were analyzed',
+  // Study design signals
+  'cross-sectional','longitudinal','surveillance study','sentinel surveillance',
+  'prospective','retrospective','cohort','population-based',
+];
+
 
 function abRenderCard() {
   const total = abFcRecords.length;
@@ -2450,7 +2579,13 @@ function abRenderCard() {
   document.getElementById('ab-num').textContent = '#' + String(abFcIndex + 1).padStart(4, '0') + ' · ' + rec.source.toUpperCase();
   function hlText(txt) {
     let s = (txt||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    // Geo highlight first (green) — longer phrases before shorter to avoid partial overlap
+    // Amber tier first — hard-include data signals (sample types, methods, prevalence)
+    const incSorted = [..._hlInclude].sort((a,b) => b.length - a.length);
+    incSorted.forEach(w => {
+      s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'),
+        '<mark style="background:rgba(245,200,66,0.18);color:#f5c842;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>');
+    });
+    // Geo highlight (green) — longer phrases before shorter to avoid partial overlap
     const geoSorted = [..._hlGeo].sort((a,b) => b.length - a.length);
     geoSorted.forEach(w => {
       s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'),
@@ -2513,6 +2648,8 @@ function abToggleFullAbstract() {
     // Render full abstract with no height cap
     function hlFull(txt) {
       let s = (txt||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const incSorted = [..._hlInclude].sort((a,b) => b.length - a.length);
+      incSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'), '<mark style="background:rgba(245,200,66,0.18);color:#f5c842;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>'); });
       const geoSorted = [..._hlGeo].sort((a,b) => b.length - a.length);
       geoSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'), '<mark style="background:rgba(45,212,160,0.18);color:#2dd4a0;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>'); });
       const resSorted = [..._hlResistance].sort((a,b) => b.length - a.length);
@@ -2616,6 +2753,135 @@ function abTogglePendingOnly() {
   abFcIndex = 0; abRenderCard(); abRenderSidebar();
 }
 
+function abRenderAnalytics() {
+  // All title-included records that are in the abstract pool
+  const pool = records.filter(r => !r.isDuplicate && r.titleDecision === 'inc');
+  const remaining = pool.filter(r => !r.abstractDecision);
+  const included  = pool.filter(r => r.abstractDecision === 'inc');
+
+  // Helper: count occurrences of a string in a list of records
+  function countBy(recs, fn) {
+    const m = {};
+    recs.forEach(r => {
+      const key = fn(r) || 'Unknown';
+      m[key] = (m[key] || 0) + 1;
+    });
+    return m;
+  }
+
+  // Helper: detect country from title+abstract
+  const COUNTRY_MAP = {
+    'Nigeria':'nigeria','Ghana':'ghana','Senegal':'senegal','Mali':'mali',
+    'Burkina Faso':'burkina faso','Cameroon':'cameroon','Benin':'benin',
+    'Togo':'togo','Niger':'niger','Côte d\'Ivoire':'cote d\'ivoire',
+    'Guinea':'guinea','Sierra Leone':'sierra leone','Liberia':'liberia',
+    'Gambia':'gambia','Guinea-Bissau':'guinea-bissau','Mauritania':'mauritania',
+    'Chad':'chad','Cabo Verde':'cabo verde','Equatorial Guinea':'equatorial guinea',
+    'Multi-country':'west africa'
+  };
+  function detectCountry(r) {
+    const t = ((r.title||'') + ' ' + (r.abstract||'')).toLowerCase();
+    for (const [label, kw] of Object.entries(COUNTRY_MAP)) {
+      if (t.includes(kw)) return label;
+    }
+    return 'Other';
+  }
+
+  // Helper: detect resistance marker
+  const MARKER_MAP = {
+    'kelch13/K13':['pfkelch13','kelch13','k13','pfk13','c580y','r539t','f446i','i543t'],
+    'pfcrt':['pfcrt','k76t','chloroquine resistance marker'],
+    'pfmdr1':['pfmdr1','pfmdr','n86y'],
+    'pfdhfr':['pfdhfr','dhfr','n51i','c59r','i164l','s108n'],
+    'pfdhps':['pfdhps','dhps','a437g','k540e'],
+    'plasmepsin':['plasmepsin','pfpm2','pfpm3','piperaquine resistance'],
+    'Multiple':[]
+  };
+  function detectMarker(r) {
+    const t = ((r.title||'') + ' ' + (r.abstract||'')).toLowerCase();
+    const hits = [];
+    for (const [label, kws] of Object.entries(MARKER_MAP)) {
+      if (label === 'Multiple') continue;
+      if (kws.some(kw => t.includes(kw))) hits.push(label);
+    }
+    if (hits.length > 1) return 'Multiple';
+    if (hits.length === 1) return hits[0];
+    return 'Other';
+  }
+
+  // Helper: year bucket
+  function detectYear(r) {
+    const y = parseInt(r.year);
+    if (!y) return 'Unknown';
+    if (y < 2000) return '<2000';
+    if (y < 2005) return '2000–04';
+    if (y < 2010) return '2005–09';
+    if (y < 2015) return '2010–14';
+    if (y < 2020) return '2015–19';
+    return '2020+';
+  }
+
+  // Helper: journal (truncated)
+  function detectJournal(r) {
+    const j = (r.journal||'Unknown').trim();
+    return j.length > 28 ? j.slice(0, 26) + '…' : j;
+  }
+
+  // Render one analytics card
+  function renderCard(containerId, title, remCounts, incCounts) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    // Merge keys
+    const allKeys = [...new Set([...Object.keys(remCounts), ...Object.keys(incCounts)])];
+    // Sort by total descending
+    allKeys.sort((a,b) => ((remCounts[b]||0)+(incCounts[b]||0)) - ((remCounts[a]||0)+(incCounts[a]||0)));
+    const top = allKeys.slice(0, 12);
+    const maxTotal = Math.max(...top.map(k => (remCounts[k]||0) + (incCounts[k]||0)), 1);
+    let html = '<div class="analytics-card">';
+    html += '<div class="analytics-card-title">' + title + '</div>';
+    top.forEach(k => {
+      const rem = remCounts[k] || 0;
+      const inc = incCounts[k] || 0;
+      const total = rem + inc;
+      const remPct = (rem / maxTotal * 100).toFixed(1);
+      const incPct = (inc / maxTotal * 100).toFixed(1);
+      html += '<div class="analytics-bar-row">';
+      html += '<div class="analytics-bar-label" title="' + k + '">' + k + '</div>';
+      html += '<div class="analytics-bar-track">';
+      html += '<div class="analytics-bar-fill-rem" style="width:' + remPct + '%"></div>';
+      html += '<div class="analytics-bar-fill-inc" style="width:' + incPct + '%"></div>';
+      html += '</div>';
+      html += '<div class="analytics-bar-count">' + (inc > 0 ? '<span style="color:var(--inc)">' + inc + '</span>/' : '') + total + '</div>';
+      html += '</div>';
+    });
+    // Legend
+    html += '<div style="display:flex;gap:10px;margin-top:8px">';
+    html += '<span style="font-family:var(--mono);font-size:9px;color:var(--inc)">■ included</span>';
+    html += '<span style="font-family:var(--mono);font-size:9px;color:var(--text3)">■ remaining</span>';
+    html += '</div>';
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  const charts = [
+    { id: 'an-country',  togId: 'an-tog-country',  title: 'COUNTRY',  fn: detectCountry },
+    { id: 'an-marker',   togId: 'an-tog-marker',   title: 'MARKER',   fn: detectMarker  },
+    { id: 'an-year',     togId: 'an-tog-year',     title: 'YEAR',     fn: detectYear    },
+    { id: 'an-journal',  togId: 'an-tog-journal',  title: 'JOURNAL',  fn: detectJournal },
+  ];
+
+  charts.forEach(({ id, togId, title, fn }) => {
+    const cb = document.getElementById(togId);
+    const el = document.getElementById(id);
+    if (!cb || !el) return;
+    if (!cb.checked) { el.style.display = 'none'; return; }
+    el.style.display = '';
+    const remCounts = countBy(remaining, fn);
+    const incCounts = countBy(included,  fn);
+    renderCard(id, title, remCounts, incCounts);
+  });
+}
+
 function abSetFilter(f) {
   abFilter = f;
   ['all','pending','inc','exc','maybe'].forEach(k => {
@@ -2641,6 +2907,7 @@ function abRenderSidebar() {
       (dec ? '<span class="decision-badge badge-' + dec + '" style="font-size:9px;padding:1px 5px">' + dec.toUpperCase() + '</span>' : '') +
       '</div></div>';
   }).join('');
+  abRenderAnalytics();
 }
 
 function abToggleListView() {
