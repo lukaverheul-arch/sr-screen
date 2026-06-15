@@ -729,6 +729,39 @@
     flex-direction: column;
     gap: 6px;
   }
+  .sidebar-priority-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .priority-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 7px;
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--text3);
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    transition: all .15s;
+  }
+  .priority-btn:hover { color: var(--text2); border-color: var(--border3, var(--border2)); }
+  .priority-btn.active-country {
+    border-color: #f5a623;
+    color: #f5a623;
+    background: rgba(245,166,35,0.12);
+  }
+  .priority-btn-clear {
+    color: var(--text3);
+    font-size: 9px;
+    padding: 3px 6px;
+    margin-left: 2px;
+  }
+  .priority-btn-clear:hover { color: var(--exc); border-color: var(--exc); }
   .sidebar-filters {
     display: flex;
     gap: 4px;
@@ -831,7 +864,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v35</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v37</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -1133,6 +1166,14 @@
         </div>
         <div class="flashcard-sidebar" id="ab-sidebar">
           <div class="sidebar-header">
+            <div class="sidebar-priority-bar" id="ab-priority-bar">
+              <span style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:0.06em;flex-shrink:0">PRIORITY</span>
+              <button class="priority-btn" id="pb-ghana"  onclick="abSetCountry('ghana')">GH</button>
+              <button class="priority-btn" id="pb-nigeria" onclick="abSetCountry('nigeria')">NG</button>
+              <button class="priority-btn" id="pb-togo"   onclick="abSetCountry('togo')">TG</button>
+              <button class="priority-btn" id="pb-benin"  onclick="abSetCountry('benin')">BJ</button>
+              <button class="priority-btn priority-btn-clear" id="pb-clear" onclick="abClearCountry()" title="Clear country filter">✕</button>
+            </div>
             <div class="sidebar-filters">
               <button class="filter-btn active-all" id="af-all" onclick="abSetFilter('all')">All</button>
               <button class="filter-btn" id="af-pending" onclick="abSetFilter('pending')">Pending</button>
@@ -2517,7 +2558,7 @@ const _hlResistance = [
   'dhfr and dhps','triple mutant','quintuple mutant','sextuple mutant',
   // General molecular
   'mutation','polymorphism','genotype','allele','haplotype','snp','single nucleotide',
-  'microsatellite','pcr','sequencing','whole genome','genotyping',
+  'microsatellite','pcr','sequencing','sequences','sequence','sequenced','whole genome','genotyping',
   // Drugs (in context)
   'chloroquine','artemisinin','sulfadoxine','pyrimethamine','lumefantrine',
   'piperaquine','amodiaquine','mefloquine','quinine','artesunate','artemether',
@@ -2544,6 +2585,7 @@ const _hlInclude = [
   // Genotyping / sequencing methods — confirms molecular data
   'sanger sequencing','whole genome sequencing','wgs','next generation sequencing',
   'next-generation sequencing','ngs','deep sequencing','amplicon sequencing',
+  'were sequenced','were sequence','dna sequence','dna sequences','nucleotide sequence',
   'high-resolution melting','hrm','restriction fragment','rflp',
   'real-time pcr','real time pcr','quantitative pcr','qpcr','rt-pcr',
   'allele-specific pcr','allele specific pcr','nested pcr','multiplex pcr',
@@ -2736,6 +2778,8 @@ function abAdvance() {
 }
 
 function abUndo() {
+  // Step back to previous card and clear its decision
+  if (abFcIndex > 0) abFcIndex--;
   const rec = abFcRecords[abFcIndex];
   if (!rec) return;
   rec.abstractDecision = null; rec.abstractReason = null;
@@ -2887,6 +2931,38 @@ function abSetFilter(f) {
   ['all','pending','inc','exc','maybe'].forEach(k => {
     const el = document.getElementById('af-' + k);
     if (el) el.className = 'filter-btn' + (k === f ? ' active-' + k : '');
+  });
+  abFcRecords = abGetRecords(); abFcIndex = 0; abRenderCard(); abRenderSidebar();
+}
+
+// Priority country buttons — Ghana → Nigeria → Togo → Benin
+const _priorityCountries = { ghana: 'pb-ghana', nigeria: 'pb-nigeria', togo: 'pb-togo', benin: 'pb-benin' };
+function abSetCountry(name) {
+  // Update search box to country name
+  const searchEl = document.getElementById('abstract-search');
+  if (searchEl) searchEl.value = name;
+  // Highlight active button, clear others
+  Object.entries(_priorityCountries).forEach(([c, id]) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle('active-country', c === name);
+  });
+  // Switch to pending filter so we only see undecided records from this country
+  abFilter = 'pending';
+  ['all','pending','inc','exc','maybe'].forEach(k => {
+    const el = document.getElementById('af-' + k);
+    if (el) el.className = 'filter-btn' + (k === 'pending' ? ' active-pending' : '');
+  });
+  abFcRecords = abGetRecords();
+  // Jump to first record (already pending-only)
+  abFcIndex = 0;
+  abRenderCard(); abRenderSidebar();
+}
+function abClearCountry() {
+  const searchEl = document.getElementById('abstract-search');
+  if (searchEl) searchEl.value = '';
+  Object.values(_priorityCountries).forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.remove('active-country');
   });
   abFcRecords = abGetRecords(); abFcIndex = 0; abRenderCard(); abRenderSidebar();
 }
