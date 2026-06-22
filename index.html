@@ -5456,53 +5456,82 @@ async function ftExtractData() {
   if (statusEl) statusEl.textContent = 'Sending to AI...';
 
   // Step 2: call Groq with extraction prompt
-  const extractionPrompt = `You are a systematic review data extractor for a study on antimalarial drug resistance molecular markers in West Africa.
+  const extractionPrompt = `You are an expert systematic review data extractor specialising in antimalarial drug resistance molecular epidemiology. Extract structured data from the paper below for a meta-analysis of P. falciparum resistance marker prevalence in West Africa.
 
-Extract the following variables from the paper text below. Return ONLY valid JSON matching this exact schema. Use null for any field not reported or not determinable. For markers, extract ALL markers reported — return them as an array.
+CRITICAL RULES - READ BEFORE EXTRACTING:
 
-SCHEMA:
+1. DENOMINATORS - THREE DISTINCT NUMBERS EXIST:
+   n_enrolled = total patients recruited / screened
+   n_pf_confirmed = patients with confirmed P. falciparum infection (by microscopy/RDT/PCR)
+   n_genotyped = samples SUCCESSFULLY genotyped/sequenced (the actual denominator for ALL prevalence calculations). This is often LESS than n_pf_confirmed due to sequencing failure, poor DNA quality, etc. Look for "successful sequencing rate", "amplification success", "X of Y samples yielded readable sequences", "X samples were successfully genotyped". If a paper says "110 of 159 samples were successfully sequenced", n_genotyped = 110, NOT 159.
+   genotyping_success_rate = n_genotyped / n_pf_confirmed x 100. Calculate yourself if not stated. NEVER assume 100% unless explicitly confirmed.
+   n_genotyped_marker = the denominator for a SPECIFIC marker (may differ across markers). Use per-marker denominators when available.
+
+2. MARKER PREVALENCES - EXTRACT FROM ALL SOURCES:
+   Tables: parse rows carefully. Format is typically: mutation | n mutant | n genotyped | prevalence (%)
+   In-text: look for "prevalence of X was Y% (n/N)", "X mutation was found in Y of Z samples", "frequency of X was Y/Z (P%)"
+   Extract EVERY individual allele as a SEPARATE marker object. If a paper reports 10 mutations, create 10 marker objects.
+   n_mutant: the raw count carrying the mutant allele (the numerator)
+   prevalence_reported: the % as stated in the paper (string, e.g. "1.82")
+   prevalence_calc: recalculate yourself as n_mutant/n_genotyped_marker x 100, rounded to 2 decimal places.
+   If prevalence is given as a fraction like "2/110", set n_mutant=2, n_genotyped_marker=110, prevalence_calc="1.82"
+
+3. PFKELCH13 WHO CLASSIFICATION (WHO 2023):
+   Validated: C580Y, R539T, Y493H, F446I, I543T, P574L, R561H, M476I, P553L, A675V, F656C, R622I, P441L, G449A, C469Y, P667T, H719N, K189T, E252Q
+   Candidate: G538V, V568G, R515K
+   Not on either list = "not classified". Not Pfkelch13 = "N/A"
+
+4. MULTIPLE GENES: Create one marker object per allele per gene. Pfkelch13 C469R + Pfcrt K76T + Pfmdr1 N86Y = 3 separate objects minimum.
+
+5. HAPLOTYPES: If multi-locus haplotypes are reported (e.g. Pfdhfr triple IRN, Pfcrt CVIET), add them as extra marker objects with haplotype field filled.
+
+6. SAMPLING SEASON: West Africa wet season = June-October, dry = November-May. Derive from months if not stated.
+
+7. CONFIDENCE NOTES - ALWAYS FILL: Note denominators used, table rendering issues, ambiguities, discrepancies, calculations performed.
+
+JSON SCHEMA - return ONLY this JSON, no other text:
 {
-  "first_author": "string",
-  "pub_year": "string",
-  "journal": "string",
+  "first_author": "last name of first author",
+  "pub_year": "4-digit year",
+  "journal": "journal name",
   "study_design": "cross-sectional | longitudinal | clinical trial | other",
-  "country": "string",
-  "region": "string or null",
-  "district": "string or null",
-  "site_name": "string or null",
-  "lat": "decimal string or null",
-  "lon": "decimal string or null",
+  "country": "country name(s)",
+  "region": "region/province or null",
+  "district": "district or null",
+  "site_name": "specific study site(s) or null",
+  "lat": "decimal latitude or null",
+  "lon": "decimal longitude or null",
   "urban_rural": "urban | rural | mixed | null",
   "sample_start": "mm/yyyy or null",
   "sample_end": "mm/yyyy or null",
-  "population_age": "string (e.g. 'all ages', 'children <5', 'pregnant women')",
-  "n_enrolled": "integer or null",
-  "n_pf_confirmed": "integer or null",
-  "n_genotyped": "integer or null",
+  "population_age": "all ages | children <5 | adults | pregnant women | uncomplicated malaria patients | etc",
+  "n_enrolled": null or integer,
+  "n_pf_confirmed": null or integer,
+  "n_genotyped": null or integer,
   "symptomatic": "symptomatic | asymptomatic | both | null",
   "sampling_season": "wet season | dry season | year-round | mixed | not reported",
-  "genotyping_success_rate": "percentage as string e.g. 87.3 — calculate as n_genotyped/n_pf_confirmed*100 if not directly stated, or null",
-  "sample_type": "DBS | venous blood | finger prick | not specified",
-  "pf_diagnosis": "string (microscopy / RDT / PCR / combination)",
-  "genotyping_method": "string (PCR-RFLP / Sanger / NGS / allele-specific PCR / etc)",
+  "genotyping_success_rate": "percentage string e.g. 69.18 or null",
+  "sample_type": "DBS | venous blood | finger prick | combination | not specified",
+  "pf_diagnosis": "microscopy | RDT | PCR | microscopy+RDT | microscopy+PCR | not specified",
+  "genotyping_method": "PCR-RFLP | Sanger sequencing | NGS | allele-specific PCR | real-time PCR | WGS | other",
   "mixed_filtered": "yes | no | not reported",
-  "national_policy_drug": "string — national first-line antimalarial drug at the time of the study e.g. 'AL (artemether-lumefantrine)' or null",
-  "year_policy_changed": "year as string if a policy change occurred during the study period e.g. '2008' or null",
+  "national_policy_drug": "AL (artemether-lumefantrine) | ASAQ (artesunate-amodiaquine) | SP (sulfadoxine-pyrimethamine) | CQ (chloroquine) | null",
+  "year_policy_changed": "year string or null",
   "markers": [
     {
-      "marker": "gene name e.g. Pfkelch13",
-      "codon": "codon e.g. K76 or C580",
-      "allele": "specific mutation e.g. K76T",
-      "kelch13_who_class": "validated | candidate | not classified | N/A — only fill if marker is Pfkelch13; use WHO 2023 classification",
-      "n_genotyped_marker": "integer or null",
-      "n_mutant": "integer or null",
-      "prevalence_reported": "number as string e.g. 43.2 or null",
-      "prevalence_calc": "calculate as n_mutant/n_genotyped_marker*100 rounded to 1dp, or null",
-      "ci": "string e.g. 38.1-48.3 or null",
-      "haplotype": "string describing combination haplotype or null"
+      "marker": "Pfkelch13 | Pfcrt | Pfmdr1 | Pfdhfr | Pfdhps | etc",
+      "codon": "codon position e.g. K76 | C580 | N86",
+      "allele": "specific mutant allele e.g. K76T | C580Y | N86Y",
+      "kelch13_who_class": "validated | candidate | not classified | N/A",
+      "n_genotyped_marker": null or integer,
+      "n_mutant": null or integer,
+      "prevalence_reported": "string percentage as in paper e.g. 1.82 or null",
+      "prevalence_calc": "string percentage recalculated by you e.g. 1.82 or null",
+      "ci": "string e.g. 0.2-6.4 or null",
+      "haplotype": "multi-locus haplotype description or null"
     }
   ],
-  "confidence_notes": "brief note on data quality / any uncertainties"
+  "confidence_notes": "Required: denominators used, table rendering issues, missing data, calculations performed, discrepancies found"
 }
 
 PAPER TEXT:
@@ -5515,7 +5544,7 @@ ${pdfText}`;
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
-        max_tokens: 3000,
+        max_tokens: 4000,
         temperature: 0.0,
         messages: [{ role: 'user', content: extractionPrompt }]
       })
