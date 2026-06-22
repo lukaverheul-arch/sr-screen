@@ -864,7 +864,7 @@
 <body>
 
 <div class="app-header">
-  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v37</span></div>
+  <div class="app-title">SR·SCREEN / <span>Antimalarial Resistance — West Africa</span> <span style="color:var(--text3);font-size:11px;margin-left:8px">v39</span></div>
   <div class="header-sep"></div>
   <div id="save-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-right:12px;display:flex;align-items:center;gap:6px">
     <span id="save-dot" style="width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block"></span>
@@ -2022,11 +2022,13 @@ function fcRenderCard() {
   document.getElementById('fc-num').textContent = '#' + String(fcIndex + 1).padStart(4, '0') + ' · ' + rec.source.toUpperCase();
   const rawTitle = rec.title || 'No title';
   // Highlight resistance-related words in title
-  const resistanceWords = ['resistance','resistant','mutation','polymorphism','genotype','allele','haplotype','pfcrt','pfmdr','kelch','pfdhfr','pfdhps','plasmepsin','molecular marker'];
+  const resistanceWords = ['drug resistance','drug-resistant','multidrug-resistant','antimalarial resistance','resistance','resistant','mutation','polymorphism','genotype','allele','haplotype','pfcrt','pfmdr','kelch','pfdhfr','pfdhps','plasmepsin','molecular marker'];
   let highlightedTitle = rawTitle;
+  // Sort longest first to avoid partial matches (e.g. 'drug resistance' before 'resistance')
+  resistanceWords.sort((a,b) => b.length - a.length);
   resistanceWords.forEach(word => {
-    const regex = new RegExp('(' + word + ')', 'gi');
-    highlightedTitle = highlightedTitle.replace(regex, '<mark style="background:rgba(79,142,247,0.25);color:var(--text);border-radius:2px;padding:0 2px">$1</mark>');
+    const regex = new RegExp('(' + word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
+    highlightedTitle = highlightedTitle.replace(regex, '<mark style="background:rgba(255,20,147,0.28);color:#ff69b4;border-radius:2px;padding:0 2px;font-weight:600">$1</mark>');
   });
   document.getElementById('fc-title').innerHTML = highlightedTitle;
 
@@ -2542,6 +2544,8 @@ const _hlResistance = [
   'pfubp1','pfap2mu','pfap2-mu','kelch propeller',
   'pvdhfr','pvdhps','pvmdr1','pvkelch','pvcrt','pmdhfr','pmdhps',
   'pfhrp2','pfhrp3','hrp2','hrp3',
+  // Standalone resistance words
+  'resistance','resistant',
   // Drug resistance phrases
   'chloroquine resistance','artemisinin resistance','sulfadoxine resistance',
   'sulfadoxine-pyrimethamine resistance','sp resistance',
@@ -2624,20 +2628,20 @@ function abRenderCard() {
     // Amber tier first — hard-include data signals (sample types, methods, prevalence)
     const incSorted = [..._hlInclude].sort((a,b) => b.length - a.length);
     incSorted.forEach(w => {
-      s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'),
+      s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![a-zA-Z<])', 'gi'),
         '<mark style="background:rgba(245,200,66,0.18);color:#f5c842;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>');
     });
     // Geo highlight (green) — longer phrases before shorter to avoid partial overlap
     const geoSorted = [..._hlGeo].sort((a,b) => b.length - a.length);
     geoSorted.forEach(w => {
-      s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'),
+      s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![a-zA-Z<])', 'gi'),
         '<mark style="background:rgba(45,212,160,0.18);color:#2dd4a0;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>');
     });
-    // Resistance highlight (blue) — longer phrases first
+    // Resistance highlight (pink) — longer phrases first
     const resSorted = [..._hlResistance].sort((a,b) => b.length - a.length);
     resSorted.forEach(w => {
-      s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'),
-        '<mark style="background:rgba(79,142,247,0.22);color:#7ab3ff;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>');
+      s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![a-zA-Z<])', 'gi'),
+        '<mark style="background:rgba(255,20,147,0.22);color:#ff69b4;border-radius:2px;padding:0 2px;font-weight:600">$1</mark>');
     });
     return s;
   }
@@ -2691,11 +2695,11 @@ function abToggleFullAbstract() {
     function hlFull(txt) {
       let s = (txt||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
       const incSorted = [..._hlInclude].sort((a,b) => b.length - a.length);
-      incSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'), '<mark style="background:rgba(245,200,66,0.18);color:#f5c842;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>'); });
+      incSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![a-zA-Z<])', 'gi'), '<mark style="background:rgba(245,200,66,0.18);color:#f5c842;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>'); });
       const geoSorted = [..._hlGeo].sort((a,b) => b.length - a.length);
-      geoSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'), '<mark style="background:rgba(45,212,160,0.18);color:#2dd4a0;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>'); });
+      geoSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![a-zA-Z<])', 'gi'), '<mark style="background:rgba(45,212,160,0.18);color:#2dd4a0;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>'); });
       const resSorted = [..._hlResistance].sort((a,b) => b.length - a.length);
-      resSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![\\w<])', 'gi'), '<mark style="background:rgba(79,142,247,0.22);color:#7ab3ff;border-radius:2px;padding:0 2px;font-weight:500">$1</mark>'); });
+      resSorted.forEach(w => { s = s.replace(new RegExp('(?<![\\w>])(' + w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')(?![a-zA-Z<])', 'gi'), '<mark style="background:rgba(255,20,147,0.22);color:#ff69b4;border-radius:2px;padding:0 2px;font-weight:600">$1</mark>'); });
       return s;
     }
     fullEl.innerHTML = hlFull(rec.abstract);
