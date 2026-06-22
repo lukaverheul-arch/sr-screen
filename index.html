@@ -860,6 +860,7 @@
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module" id="pdfjs-script"></script>
 </head>
 <body>
 
@@ -1263,6 +1264,39 @@
             <div class="fc-meta" id="ft-meta"></div>
             <div id="ft-abstract" style="font-size:13px;line-height:1.7;color:var(--text2);margin-top:12px;max-height:280px;overflow-y:auto;padding-right:4px"></div>
             <div id="ft-links" style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"></div>
+            <!-- PDF fetch status + viewer -->
+            <div id="ft-pdf-bar" style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <button id="ft-pdf-btn" class="btn btn-ghost" style="font-size:11px;padding:4px 12px;border-color:#ff69b4;color:#ff69b4" onclick="ftFetchPdf()">⬇ Fetch PDF</button>
+              <label style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;cursor:pointer">
+                <input type="checkbox" id="ft-auto-fetch" onchange="ftAutoFetchChanged()" style="cursor:pointer"> auto-fetch
+              </label>
+              <span id="ft-pdf-status" style="font-family:var(--mono);font-size:11px;color:var(--text3)"></span>
+            </div>
+            <div id="ft-pdf-wrap" style="margin-top:10px;display:none">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                <span id="ft-pdf-source-label" style="font-family:var(--mono);font-size:10px;color:var(--text3)"></span>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-ghost" style="font-size:10px;padding:3px 8px;border-color:#2dd4a0;color:#2dd4a0" onclick="ftExtractData()">🤖 Extract Data</button>
+                  <a id="ft-pdf-open-link" href="#" target="_blank" class="btn btn-ghost" style="font-size:10px;padding:3px 8px">Open in tab ↗</a>
+                  <button class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="document.getElementById('ft-pdf-wrap').style.display='none'">✕ Close</button>
+                </div>
+              </div>
+              <iframe id="ft-pdf-iframe" src="" style="width:100%;height:420px;border:1px solid var(--border2);border-radius:4px;background:#fff"></iframe>
+            </div>
+            <!-- EXTRACTION PANEL -->
+            <div id="ft-extract-panel" style="display:none;margin-top:12px;border:1px solid var(--border2);border-radius:6px;overflow:hidden">
+              <div style="background:var(--surface2);padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border2)">
+                <span style="font-family:var(--mono);font-size:11px;color:#2dd4a0;font-weight:500">🤖 AI EXTRACTION</span>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <span id="ft-extract-status" style="font-family:var(--mono);font-size:10px;color:var(--text3)"></span>
+                  <button class="btn btn-ghost" style="font-size:10px;padding:3px 8px;border-color:#2dd4a0;color:#2dd4a0" onclick="ftConfirmExtraction()">✓ Confirm &amp; Save Row</button>
+                  <button class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="ftAddMarkerBlock()">+ Add Marker</button>
+                  <button class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="document.getElementById('ft-extract-panel').style.display='none'">✕</button>
+                </div>
+              </div>
+              <div id="ft-extract-fields" style="padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:480px;overflow-y:auto"></div>
+              <div id="ft-marker-blocks" style="padding:0 14px 12px"></div>
+            </div>
             <div id="ft-notes-wrap" style="margin-top:12px">
               <textarea id="ft-notes" placeholder="Full-text notes (optional)..." rows="3"
                 style="width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;resize:vertical"
@@ -1278,6 +1312,7 @@
             <button class="btn btn-ghost" style="font-size:11px" onclick="ftUndo()">↩ Undo <span style="opacity:.5;font-size:9px">Z</span></button>
             <button class="btn btn-ghost" style="font-size:11px" onclick="ftJumpNextUndecided()">⏭ Next Undecided <span style="opacity:.5;font-size:9px">S</span></button>
             <button class="btn btn-ghost" style="font-size:11px" onclick="ftToggleListView()">☰ List View</button>
+            <button class="btn btn-ghost" style="font-size:11px;border-color:#f5a623;color:#f5a623" onclick="ftExportCSV()">⬇ Export Extractions CSV</button>
           </div>
         </div>
         <div class="flashcard-sidebar" id="ft-sidebar">
@@ -3098,6 +3133,9 @@ function ftRenderCard() {
   if (rec.pmid) links += '<a href="https://pubmed.ncbi.nlm.nih.gov/' + rec.pmid + '/" target="_blank" class="btn btn-ghost" style="font-size:11px;padding:4px 10px">PubMed ↗</a>';
   linksEl.innerHTML = links;
 
+  // PDF panel — reset or restore
+  ftRenderPdfPanel(rec);
+
   // Notes
   const notesEl = document.getElementById('ft-notes');
   if (notesEl) notesEl.value = rec.ftNotes || '';
@@ -3115,6 +3153,162 @@ function ftSaveNotes() {
   if (!rec) return;
   rec.ftNotes = document.getElementById('ft-notes')?.value || '';
   save();
+}
+
+// ── PDF AUTO-FETCH SYSTEM ──────────────────────────────────────────────────
+
+let ftAutoFetch = false;
+
+function ftAutoFetchChanged() {
+  ftAutoFetch = document.getElementById('ft-auto-fetch').checked;
+  if (ftAutoFetch && ftFcRecords.length) {
+    const rec = ftFcRecords[ftFcIndex];
+    if (rec && !rec.pdfUrl && !rec.pdfChecked) ftFetchPdf();
+  }
+}
+
+function ftRenderPdfPanel(rec) {
+  const statusEl = document.getElementById('ft-pdf-status');
+  const wrapEl   = document.getElementById('ft-pdf-wrap');
+  const iframeEl = document.getElementById('ft-pdf-iframe');
+  const openLink = document.getElementById('ft-pdf-open-link');
+  const srcLabel = document.getElementById('ft-pdf-source-label');
+  const btnEl    = document.getElementById('ft-pdf-btn');
+
+  // Hide panel by default on new card
+  if (wrapEl) wrapEl.style.display = 'none';
+  if (iframeEl) iframeEl.src = '';
+
+  if (!rec) return;
+
+  if (rec.pdfUrl) {
+    // Already fetched and found
+    if (statusEl) statusEl.textContent = '✓ Open access PDF found (' + (rec.pdfSource || 'OA') + ')';
+    if (statusEl) statusEl.style.color = 'var(--inc)';
+    if (btnEl) btnEl.textContent = '⬇ Show PDF';
+    if (btnEl) btnEl.style.borderColor = 'var(--inc)';
+    if (btnEl) btnEl.style.color = 'var(--inc)';
+    // Auto-show if auto-fetch is on
+    if (ftAutoFetch) ftShowPdf(rec);
+  } else if (rec.pdfChecked) {
+    // Already checked, not available
+    if (statusEl) statusEl.textContent = '✗ Not available open access';
+    if (statusEl) statusEl.style.color = 'var(--exc)';
+    if (btnEl) btnEl.textContent = '⬇ Fetch PDF';
+    if (btnEl) btnEl.style.borderColor = '#ff69b4';
+    if (btnEl) btnEl.style.color = '#ff69b4';
+  } else {
+    // Not yet checked
+    if (statusEl) statusEl.textContent = '';
+    if (btnEl) btnEl.textContent = '⬇ Fetch PDF';
+    if (btnEl) btnEl.style.borderColor = '#ff69b4';
+    if (btnEl) btnEl.style.color = '#ff69b4';
+    // Auto-fetch if enabled
+    if (ftAutoFetch) ftFetchPdf();
+  }
+}
+
+function ftShowPdf(rec) {
+  const wrapEl   = document.getElementById('ft-pdf-wrap');
+  const iframeEl = document.getElementById('ft-pdf-iframe');
+  const openLink = document.getElementById('ft-pdf-open-link');
+  const srcLabel = document.getElementById('ft-pdf-source-label');
+  if (!rec || !rec.pdfUrl) return;
+  if (srcLabel) srcLabel.textContent = 'Source: ' + (rec.pdfSource || 'open access');
+  if (openLink) openLink.href = rec.pdfUrl;
+  if (iframeEl) iframeEl.src = rec.pdfUrl;
+  if (wrapEl)   wrapEl.style.display = '';
+}
+
+async function ftFetchPdf() {
+  if (!ftFcRecords.length) return;
+  const rec = ftFcRecords[ftFcIndex];
+  if (!rec) return;
+
+  // If already found, just show it
+  if (rec.pdfUrl) { ftShowPdf(rec); return; }
+
+  const statusEl = document.getElementById('ft-pdf-status');
+  const btnEl    = document.getElementById('ft-pdf-btn');
+  if (statusEl) { statusEl.textContent = 'Fetching...'; statusEl.style.color = 'var(--text3)'; }
+  if (btnEl) { btnEl.disabled = true; btnEl.textContent = '...'; }
+
+  let pdfUrl = null;
+  let pdfSource = null;
+
+  // ── STEP 1: Unpaywall (requires DOI + email) ──
+  if (rec.doi && !pdfUrl) {
+    try {
+      const email = 'lukaverheul@gmail.com'; // contact email for Unpaywall
+      const upUrl = 'https://api.unpaywall.org/v2/' + encodeURIComponent(rec.doi.trim()) + '?email=' + email;
+      const res = await fetch(upUrl);
+      if (res.ok) {
+        const data = await res.json();
+        // Best OA location — prefer PDF
+        const best = data.best_oa_location;
+        if (best) {
+          pdfUrl = best.url_for_pdf || best.url_for_landing_page || null;
+          pdfSource = 'Unpaywall (' + (best.host_type || 'OA') + ')';
+          // Only keep PDF direct links (not landing pages) for the iframe
+          if (pdfUrl && !pdfUrl.endsWith('.pdf') && best.url_for_pdf) {
+            pdfUrl = best.url_for_pdf;
+          } else if (!best.url_for_pdf && best.url_for_landing_page) {
+            // Landing page only — open in new tab, don't iframe
+            pdfUrl = best.url_for_landing_page;
+            pdfSource = 'Unpaywall (landing page)';
+          }
+        }
+      }
+    } catch(e) { /* silent — try next */ }
+  }
+
+  // ── STEP 2: PubMed Central via NCBI API (PMID → PMC ID → PDF) ──
+  if (rec.pmid && !pdfUrl) {
+    try {
+      const ncbiUrl = 'https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi?dbfrom=pubmed&db=pmc&id=' + rec.pmid + '&retmode=json';
+      const res = await fetch(ncbiUrl);
+      if (res.ok) {
+        const data = await res.json();
+        const linksets = data.linksets?.[0]?.linksetdbs;
+        const pmcEntry = linksets?.find(l => l.linkname === 'pubmed_pmc');
+        if (pmcEntry?.links?.length) {
+          const pmcid = pmcEntry.links[0];
+          pdfUrl = 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC' + pmcid + '/pdf/';
+          pdfSource = 'PubMed Central (PMC' + pmcid + ')';
+        }
+      }
+    } catch(e) { /* silent */ }
+  }
+
+  // ── STEP 3: Europe PMC (DOI or PMID fallback) ──
+  if (!pdfUrl && (rec.pmid || rec.doi)) {
+    try {
+      const q = rec.pmid ? 'EXT_ID:' + rec.pmid + '%20AND%20SRC:MED' : 'DOI:' + encodeURIComponent(rec.doi);
+      const epUrl = 'https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=' + q + '&resultType=core&format=json&pageSize=1';
+      const res = await fetch(epUrl);
+      if (res.ok) {
+        const data = await res.json();
+        const hit = data.resultList?.result?.[0];
+        if (hit?.fullTextUrlList?.fullTextUrl) {
+          const openUrl = hit.fullTextUrlList.fullTextUrl.find(u => u.availabilityCode === 'OA' && u.documentStyle === 'pdf');
+          if (openUrl) { pdfUrl = openUrl.url; pdfSource = 'Europe PMC'; }
+        }
+      }
+    } catch(e) { /* silent */ }
+  }
+
+  // ── Store result on record ──
+  rec.pdfChecked = true;
+  if (pdfUrl) {
+    rec.pdfUrl = pdfUrl;
+    rec.pdfSource = pdfSource;
+  }
+  save();
+
+  // Re-render panel with result
+  if (btnEl) { btnEl.disabled = false; }
+  ftRenderPdfPanel(rec);
+  if (pdfUrl) ftShowPdf(rec);
 }
 
 function ftDecide(dec) {
@@ -5160,6 +5354,346 @@ if (records.length > 0) {
     const el = document.getElementById(src + '-status');
     if (el && count > 0) { el.textContent = `✓ ${count} records loaded`; el.classList.add('loaded'); }
   });
+}
+
+// ── AI DATA EXTRACTION SYSTEM ─────────────────────────────────────────────
+
+// Extract text from a PDF URL using pdf.js
+async function ftGetPdfText(pdfUrl) {
+  // Dynamically import pdf.js (works as module)
+  let pdfjsLib;
+  try {
+    pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+  } catch(e) {
+    throw new Error('Could not load pdf.js: ' + e.message);
+  }
+
+  const loadingTask = pdfjsLib.getDocument({ url: pdfUrl, withCredentials: false });
+  const pdf = await loadingTask.promise;
+  const maxPages = Math.min(pdf.numPages, 12); // cap at 12 pages — enough for methods+results
+  let fullText = '';
+  for (let i = 1; i <= maxPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(' ');
+    fullText += pageText + '\n\n';
+  }
+  return fullText.substring(0, 18000); // cap tokens
+}
+
+// Core extraction fields definition
+const EXTRACT_FIELDS = [
+  { key: 'first_author',      label: 'First author (last name)',          section: 'Publication' },
+  { key: 'pub_year',          label: 'Publication year',                  section: 'Publication' },
+  { key: 'journal',           label: 'Journal',                           section: 'Publication' },
+  { key: 'study_design',      label: 'Study design',                      section: 'Publication' },
+  { key: 'country',           label: 'Country',                           section: 'Geography' },
+  { key: 'region',            label: 'Region / Province',                 section: 'Geography' },
+  { key: 'district',          label: 'District',                          section: 'Geography' },
+  { key: 'site_name',         label: 'Study site / village / facility',   section: 'Geography' },
+  { key: 'lat',               label: 'Latitude (decimal)',                section: 'Geography' },
+  { key: 'lon',               label: 'Longitude (decimal)',               section: 'Geography' },
+  { key: 'urban_rural',       label: 'Urban / rural / mixed',             section: 'Geography' },
+  { key: 'sample_start',      label: 'Sampling period start (mm/yyyy)',   section: 'Population' },
+  { key: 'sample_end',        label: 'Sampling period end (mm/yyyy)',     section: 'Population' },
+  { key: 'population_age',    label: 'Population age group',              section: 'Population' },
+  { key: 'n_enrolled',        label: 'N enrolled / screened',             section: 'Population' },
+  { key: 'n_pf_confirmed',    label: 'N P.falciparum confirmed',          section: 'Population' },
+  { key: 'n_genotyped',       label: 'N successfully genotyped',          section: 'Population' },
+  { key: 'symptomatic',       label: 'Symptomatic / asymptomatic / both', section: 'Population' },
+  { key: 'sampling_season',   label: 'Sampling season (wet / dry / year-round)', section: 'Population' },
+  { key: 'genotyping_success_rate', label: 'Genotyping success rate (% of Pf samples genotyped)', section: 'Population' },
+  { key: 'sample_type',       label: 'Sample type (DBS / venous / other)','section': 'Methods' },
+  { key: 'pf_diagnosis',      label: 'P.falciparum diagnosis method',     section: 'Methods' },
+  { key: 'genotyping_method', label: 'Genotyping method (PCR-RFLP / Sanger / NGS / etc)', section: 'Methods' },
+  { key: 'mixed_filtered',    label: 'Mixed infections filtered? (yes/no/NR)', section: 'Methods' },
+  { key: 'national_policy_drug',  label: 'National first-line drug at time of study', section: 'Methods' },
+  { key: 'year_policy_changed',   label: 'Year national policy changed (if during study)', section: 'Methods' },
+];
+
+const MARKER_FIELDS = [
+  { key: 'marker',       label: 'Gene / marker (e.g. Pfkelch13, Pfcrt)' },
+  { key: 'codon',        label: 'Codon(s) assessed (e.g. K76, C580)' },
+  { key: 'allele',       label: 'Mutant allele(s) (e.g. K76T, C580Y)' },
+  { key: 'kelch13_who_class', label: 'Pfkelch13 WHO class (validated / candidate / not classified / N/A)' },
+  { key: 'n_genotyped_marker', label: 'N genotyped for this marker' },
+  { key: 'n_mutant',     label: 'N carrying mutant allele' },
+  { key: 'prevalence_reported', label: 'Prevalence as reported (%)' },
+  { key: 'prevalence_calc',    label: 'Prevalence calculated [n_mut/n_gen×100]' },
+  { key: 'ci',           label: '95% CI (if reported)' },
+  { key: 'haplotype',    label: 'Haplotype / combination (if reported)' },
+];
+
+async function ftExtractData() {
+  if (!ftFcRecords.length) return;
+  const rec = ftFcRecords[ftFcIndex];
+  if (!rec) return;
+
+  const statusEl = document.getElementById('ft-extract-status');
+  const panelEl  = document.getElementById('ft-extract-panel');
+  const fieldsEl = document.getElementById('ft-extract-fields');
+  const markersEl = document.getElementById('ft-marker-blocks');
+
+  panelEl.style.display = '';
+  fieldsEl.innerHTML = '<div style="grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--text3);padding:8px 0">Extracting PDF text...</div>';
+  markersEl.innerHTML = '';
+  if (statusEl) statusEl.textContent = 'Reading PDF...';
+
+  // Step 1: get text
+  let pdfText = '';
+  if (rec.pdfUrl) {
+    try {
+      pdfText = await ftGetPdfText(rec.pdfUrl);
+    } catch(e) {
+      // Fallback: use abstract if PDF text extraction fails
+      pdfText = '[PDF text extraction failed: ' + e.message + ']\n\nAbstract: ' + (rec.abstract || '');
+    }
+  } else {
+    pdfText = 'No PDF available. Abstract only:\n\n' + (rec.abstract || '(no abstract)');
+  }
+
+  if (statusEl) statusEl.textContent = 'Sending to AI...';
+
+  // Step 2: call Groq with extraction prompt
+  const extractionPrompt = `You are a systematic review data extractor for a study on antimalarial drug resistance molecular markers in West Africa.
+
+Extract the following variables from the paper text below. Return ONLY valid JSON matching this exact schema. Use null for any field not reported or not determinable. For markers, extract ALL markers reported — return them as an array.
+
+SCHEMA:
+{
+  "first_author": "string",
+  "pub_year": "string",
+  "journal": "string",
+  "study_design": "cross-sectional | longitudinal | clinical trial | other",
+  "country": "string",
+  "region": "string or null",
+  "district": "string or null",
+  "site_name": "string or null",
+  "lat": "decimal string or null",
+  "lon": "decimal string or null",
+  "urban_rural": "urban | rural | mixed | null",
+  "sample_start": "mm/yyyy or null",
+  "sample_end": "mm/yyyy or null",
+  "population_age": "string (e.g. 'all ages', 'children <5', 'pregnant women')",
+  "n_enrolled": "integer or null",
+  "n_pf_confirmed": "integer or null",
+  "n_genotyped": "integer or null",
+  "symptomatic": "symptomatic | asymptomatic | both | null",
+  "sampling_season": "wet season | dry season | year-round | mixed | not reported",
+  "genotyping_success_rate": "percentage as string e.g. 87.3 — calculate as n_genotyped/n_pf_confirmed*100 if not directly stated, or null",
+  "sample_type": "DBS | venous blood | finger prick | not specified",
+  "pf_diagnosis": "string (microscopy / RDT / PCR / combination)",
+  "genotyping_method": "string (PCR-RFLP / Sanger / NGS / allele-specific PCR / etc)",
+  "mixed_filtered": "yes | no | not reported",
+  "national_policy_drug": "string — national first-line antimalarial drug at the time of the study e.g. 'AL (artemether-lumefantrine)' or null",
+  "year_policy_changed": "year as string if a policy change occurred during the study period e.g. '2008' or null",
+  "markers": [
+    {
+      "marker": "gene name e.g. Pfkelch13",
+      "codon": "codon e.g. K76 or C580",
+      "allele": "specific mutation e.g. K76T",
+      "kelch13_who_class": "validated | candidate | not classified | N/A — only fill if marker is Pfkelch13; use WHO 2023 classification",
+      "n_genotyped_marker": "integer or null",
+      "n_mutant": "integer or null",
+      "prevalence_reported": "number as string e.g. 43.2 or null",
+      "prevalence_calc": "calculate as n_mutant/n_genotyped_marker*100 rounded to 1dp, or null",
+      "ci": "string e.g. 38.1-48.3 or null",
+      "haplotype": "string describing combination haplotype or null"
+    }
+  ],
+  "confidence_notes": "brief note on data quality / any uncertainties"
+}
+
+PAPER TEXT:
+${pdfText}`;
+
+  let extracted = null;
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 3000,
+        temperature: 0.0,
+        messages: [{ role: 'user', content: extractionPrompt }]
+      })
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error('API error ' + response.status + ': ' + errText.substring(0, 200));
+    }
+    const data = await response.json();
+    const raw = data.choices?.[0]?.message?.content || '';
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (jsonMatch) extracted = JSON.parse(jsonMatch[0]);
+    else throw new Error('No JSON in response: ' + raw.substring(0, 100));
+  } catch(e) {
+    if (statusEl) statusEl.textContent = '✗ ' + e.message;
+    fieldsEl.innerHTML = '<div style="grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--exc);padding:8px 0">Extraction failed: ' + e.message + '</div>';
+    return;
+  }
+
+  // Step 3: store on record and render editable fields
+  rec.extraction = extracted;
+  save();
+  if (statusEl) statusEl.textContent = '✓ Done — review and correct fields below';
+  ftRenderExtractionFields(extracted);
+}
+
+function ftRenderExtractionFields(data) {
+  const fieldsEl  = document.getElementById('ft-extract-fields');
+  const markersEl = document.getElementById('ft-marker-blocks');
+  if (!data) return;
+
+  // Section headers + main fields
+  let html = '';
+  let lastSection = '';
+  EXTRACT_FIELDS.forEach(f => {
+    if (f.section !== lastSection) {
+      html += `<div style="grid-column:1/-1;font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.08em;padding-top:6px;border-top:1px solid var(--border);margin-top:4px">${f.section.toUpperCase()}</div>`;
+      lastSection = f.section;
+    }
+    const val = data[f.key];
+    const empty = val === null || val === undefined || val === '';
+    const color = empty ? 'var(--exc)' : 'var(--inc)';
+    html += `<div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:2px">${f.label}</div>
+      <input type="text" data-key="${f.key}" value="${empty ? '' : String(val).replace(/"/g,'&quot;')}"
+        placeholder="NR"
+        style="width:100%;background:var(--surface2);border:1px solid ${color}33;border-radius:3px;padding:4px 7px;font-family:var(--mono);font-size:11px;color:${empty ? 'var(--text3)' : 'var(--text)'};outline:none"
+        oninput="ftFieldChanged(this)">
+    </div>`;
+  });
+  // Notes
+  const notes = data.confidence_notes || '';
+  html += `<div style="grid-column:1/-1">
+    <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:2px">AI CONFIDENCE NOTES</div>
+    <textarea data-key="confidence_notes" rows="2"
+      style="width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:3px;padding:4px 7px;font-family:var(--mono);font-size:11px;color:var(--text2);outline:none;resize:vertical"
+      oninput="ftFieldChanged(this)">${notes}</textarea>
+  </div>`;
+
+  fieldsEl.innerHTML = html;
+
+  // Marker blocks
+  const markers = data.markers || [];
+  markersEl.innerHTML = '';
+  markers.forEach((m, i) => ftRenderMarkerBlock(m, i));
+  if (!markers.length) ftAddMarkerBlock();
+}
+
+function ftRenderMarkerBlock(data, idx) {
+  const markersEl = document.getElementById('ft-marker-blocks');
+  const block = document.createElement('div');
+  block.id = 'marker-block-' + idx;
+  block.style.cssText = 'border:1px solid var(--border2);border-radius:4px;padding:10px 12px;margin-top:8px;background:var(--surface2)';
+  let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <span style="font-family:var(--mono);font-size:10px;color:#ff69b4">MARKER ${idx + 1}</span>
+    <button class="btn btn-ghost" style="font-size:9px;padding:2px 6px;color:var(--exc)" onclick="this.closest('[id^=marker-block]').remove()">✕ Remove</button>
+  </div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">`;
+  MARKER_FIELDS.forEach(f => {
+    const val = data ? (data[f.key] !== null && data[f.key] !== undefined ? String(data[f.key]) : '') : '';
+    const empty = val === '';
+    html += `<div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-bottom:2px">${f.label}</div>
+      <input type="text" data-markerkey="${f.key}" value="${val.replace(/"/g,'&quot;')}" placeholder="NR"
+        style="width:100%;background:var(--bg);border:1px solid ${empty ? 'var(--border2)' : 'var(--inc)'}33;border-radius:3px;padding:4px 7px;font-family:var(--mono);font-size:11px;color:${empty ? 'var(--text3)' : 'var(--text)'};outline:none"
+        oninput="this.style.borderColor='var(--maybe)33'">
+    </div>`;
+  });
+  html += '</div>';
+  block.innerHTML = html;
+  markersEl.appendChild(block);
+}
+
+function ftAddMarkerBlock() {
+  const markersEl = document.getElementById('ft-marker-blocks');
+  const idx = markersEl.querySelectorAll('[id^=marker-block]').length;
+  ftRenderMarkerBlock(null, idx);
+}
+
+function ftFieldChanged(input) {
+  input.style.borderColor = 'var(--maybe)33';
+  // Sync back to rec.extraction
+  if (!ftFcRecords.length) return;
+  const rec = ftFcRecords[ftFcIndex];
+  if (!rec || !rec.extraction) return;
+  rec.extraction[input.dataset.key] = input.value;
+  save();
+}
+
+function ftConfirmExtraction() {
+  if (!ftFcRecords.length) return;
+  const rec = ftFcRecords[ftFcIndex];
+  if (!rec) return;
+
+  // Read all field inputs back into confirmed object
+  const confirmed = {};
+  document.querySelectorAll('#ft-extract-fields input[data-key], #ft-extract-fields textarea[data-key]').forEach(el => {
+    confirmed[el.dataset.key] = el.value.trim() || null;
+  });
+
+  // Read marker blocks
+  confirmed.markers = [];
+  document.querySelectorAll('#ft-marker-blocks [id^=marker-block]').forEach(block => {
+    const m = {};
+    block.querySelectorAll('input[data-markerkey]').forEach(el => {
+      m[el.dataset.markerkey] = el.value.trim() || null;
+    });
+    if (Object.values(m).some(v => v)) confirmed.markers.push(m);
+  });
+
+  confirmed._confirmed = true;
+  confirmed._confirmedAt = new Date().toISOString();
+  rec.extractionConfirmed = confirmed;
+  save();
+
+  const statusEl = document.getElementById('ft-extract-status');
+  if (statusEl) { statusEl.textContent = '✓ Saved'; statusEl.style.color = 'var(--inc)'; }
+}
+
+function ftExportCSV() {
+  // Collect all records with confirmed extractions
+  const confirmed = records.filter(r => r.extractionConfirmed);
+  if (!confirmed.length) {
+    alert('No confirmed extractions yet. Use "✓ Confirm & Save Row" on each paper first.');
+    return;
+  }
+
+  // Build flat rows — one per marker per record
+  const rows = [];
+  const baseKeys = EXTRACT_FIELDS.map(f => f.key).concat(['confidence_notes','_confirmedAt']);
+  const markerKeys = MARKER_FIELDS.map(f => f.key);
+  const allHeaders = ['record_id','title','doi','pmid', ...baseKeys, ...markerKeys];
+
+  confirmed.forEach(rec => {
+    const ex = rec.extractionConfirmed;
+    const base = {
+      record_id: rec.id,
+      title: (rec.title || '').replace(/"/g, '""'),
+      doi: rec.doi || '',
+      pmid: rec.pmid || '',
+    };
+    baseKeys.forEach(k => { base[k] = ex[k] || ''; });
+
+    const markers = ex.markers || [{}];
+    markers.forEach(m => {
+      const row = { ...base };
+      markerKeys.forEach(k => { row[k] = m[k] || ''; });
+      rows.push(allHeaders.map(h => '"' + String(row[h] || '').replace(/"/g, '""') + '"').join(','));
+    });
+  });
+
+  const csv = allHeaders.map(h => '"' + h + '"').join(',') + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = 'AMDR_extraction_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 </script>
 </body>
