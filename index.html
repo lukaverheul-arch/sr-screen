@@ -5465,11 +5465,12 @@ CRITICAL RULES - READ BEFORE EXTRACTING:
    n_pf_confirmed = patients with confirmed P. falciparum infection (by microscopy/RDT/PCR)
    n_genotyped = samples SUCCESSFULLY genotyped/sequenced (the actual denominator for ALL prevalence calculations). This is often LESS than n_pf_confirmed due to sequencing failure, poor DNA quality, etc. Look for "successful sequencing rate", "amplification success", "X of Y samples yielded readable sequences", "X samples were successfully genotyped". If a paper says "110 of 159 samples were successfully sequenced", n_genotyped = 110, NOT 159.
    genotyping_success_rate = n_genotyped / n_pf_confirmed x 100. Calculate yourself if not stated. NEVER assume 100% unless explicitly confirmed.
-   n_genotyped_marker = the denominator for a SPECIFIC marker (may differ across markers). Use per-marker denominators when available.
+   n_genotyped_marker = the denominator for THAT SPECIFIC MARKER ONLY. CRITICAL: in multi-gene papers (Pfcrt + Pfmdr1 + Pfdhfr + Pfdhps + Pfkelch13), EACH GENE HAS ITS OWN DENOMINATOR because PCR amplification success differs by locus. NEVER copy the Pfkelch13 denominator to Pfcrt or Pfdhfr etc. Find each marker's denominator from its own table row or in-text statement. If not stated, back-calculate: n_genotyped_marker = round(n_mutant / (prevalence_reported/100)). Example: pfcrt K76T = 24.6%, n_mutant = 58 → n_genotyped_marker = round(58/0.246) = 236.
 
 2. MARKER PREVALENCES - EXTRACT FROM ALL SOURCES:
    Tables: parse rows carefully. Format is typically: mutation | n mutant | n genotyped | prevalence (%)
    In-text: look for "prevalence of X was Y% (n/N)", "X mutation was found in Y of Z samples", "frequency of X was Y/Z (P%)"
+   ZERO PREVALENCE: if a paper explicitly states a mutation was NOT found / 0 cases / 0%, extract it as a marker with n_mutant=0, prevalence_reported="0", prevalence_calc="0.00". Do not omit it.
    Extract EVERY individual allele as a SEPARATE marker object. If a paper reports 10 mutations, create 10 marker objects.
    n_mutant: the raw count carrying the mutant allele (the numerator)
    prevalence_reported: the % as stated in the paper (string, e.g. "1.82")
