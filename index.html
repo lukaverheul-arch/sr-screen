@@ -5473,10 +5473,20 @@ CRITICAL RULES - READ BEFORE EXTRACTING:
    ZERO PREVALENCE: if a paper explicitly states a mutation was NOT found / 0 cases / 0%, extract it as a marker with n_mutant=0, prevalence_reported="0", prevalence_calc="0.00". Do not omit it.
    Extract EVERY individual allele as a SEPARATE marker object. If a paper reports 10 mutations, create 10 marker objects.
    n_mutant: the raw count carrying the mutant allele (the numerator)
-   prevalence_reported: the % as stated in the paper (string, e.g. "1.82")
-   prevalence_calc: recalculate yourself as n_mutant/n_genotyped_marker x 100, rounded to 2 decimal places.
+   prevalence_reported: NUMERIC STRING ONLY — e.g. "24.78" or "0" — NEVER include "%" symbol, never write "below 10%" or "~30%", always give a number.
+   prevalence_calc: recalculate yourself as n_mutant/n_genotyped_marker x 100, rounded to 2 decimal places. NUMERIC STRING ONLY.
    If prevalence is given as a fraction like "2/110", set n_mutant=2, n_genotyped_marker=110, prevalence_calc="1.82"
    BACK-CALCULATE n_mutant WHEN ONLY % IS GIVEN: If the text says "N51I was found in 76% of samples" and n_genotyped=53, then n_mutant = round(0.76 × 53) = 40. Always do this calculation.
+
+2b. ALLELE NAMING — CRITICAL: Use standard notation "WildtypeCodonMutant" (e.g. K76T = wild-type Lysine at codon 76 mutated to Threonine).
+   Canonical allele names you MUST use (do not invert or alter these):
+   Pfcrt:  K76T, A220S, Q271E, N326S, I356T, R371I — NOT T76K or 76TK
+   Pfmdr1: N86Y, Y184F, D1246Y — NOT Y86N or 86YN
+   Pfdhfr: N51I, C59R, S108N, I164L — NOT I51N, R59C, S59R, N108S, I108N
+   Pfdhps: S436A, A437G, K540E, A581G, A613S — NOT A436S, G437A, S437K, A436G
+   Pfkelch13: C580Y, R539T, Y493H, F446I, A675V — NOT Y580C or 580CY
+   If a table shows "mutant allele" column, use that value directly. If only the codon position is given with a note like "C→R", then it's C59R.
+   first_author: extract from author list (just the last name of first author). pub_year: the 4-digit publication year.
 
 3. HAPLOTYPE vs INDIVIDUAL ALLELE — CRITICAL DISTINCTION:
    A "triple mutant genotype (64%)" or "quintuple mutant (30%)" is a HAPLOTYPE prevalence — the frequency of samples carrying ALL mutations simultaneously.
@@ -5490,7 +5500,9 @@ CRITICAL RULES - READ BEFORE EXTRACTING:
    Validated: C580Y, R539T, Y493H, F446I, I543T, P574L, R561H, M476I, P553L, A675V, F656C, R622I, P441L, G449A, C469Y, P667T, H719N, K189T, E252Q
    Candidate: G538V, V568G, R515K
    Not on either list = "not classified". Not Pfkelch13 = "N/A"
-   If paper says "no validated or candidate variants identified" → still extract any named non-synonymous variants (e.g. N629S, N458D) as marker objects with kelch13_who_class="not classified", n_mutant from context or null.
+   If paper says "no validated/candidate variants" BUT names specific variants (e.g. "N629S and N458D detected"): extract each as a separate marker, kelch13_who_class="not classified".
+   If paper says "NO non-synonymous Pfkelch13 mutations detected" (truly zero): do NOT create any Pfkelch13 marker object. Never create a fake "none" or "wild-type" marker.
+   If only a count is given (e.g. "5 synonymous mutations found"): create ONE object with allele="synonymous variants (unnamed)", n_mutant=count.
 
 5. LARGE TABLES WITH MANY MUTATIONS: If a table lists 10, 20, or 30+ individual mutations (common for Pfkelch13 surveys), extract EVERY named mutation as a separate marker object. Do NOT group them as "other" or "various". If the table is too long, prioritise: (a) all named mutations with counts, (b) mutations with % > 0, (c) even mutations at 0%.
 
