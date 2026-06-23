@@ -5476,19 +5476,31 @@ CRITICAL RULES - READ BEFORE EXTRACTING:
    prevalence_reported: the % as stated in the paper (string, e.g. "1.82")
    prevalence_calc: recalculate yourself as n_mutant/n_genotyped_marker x 100, rounded to 2 decimal places.
    If prevalence is given as a fraction like "2/110", set n_mutant=2, n_genotyped_marker=110, prevalence_calc="1.82"
+   BACK-CALCULATE n_mutant WHEN ONLY % IS GIVEN: If the text says "N51I was found in 76% of samples" and n_genotyped=53, then n_mutant = round(0.76 × 53) = 40. Always do this calculation.
 
-3. PFKELCH13 WHO CLASSIFICATION (WHO 2023):
+3. HAPLOTYPE vs INDIVIDUAL ALLELE — CRITICAL DISTINCTION:
+   A "triple mutant genotype (64%)" or "quintuple mutant (30%)" is a HAPLOTYPE prevalence — the frequency of samples carrying ALL mutations simultaneously.
+   This MUST NOT be used as the prevalence for any individual allele.
+   Example WRONG: N51I=64%, C59R=64%, S108N=64% because "triple mutant genotype (64%)" was stated.
+   Example CORRECT: N51I=76%, C59R=91%, S108N=83% (individual allele frequencies), PLUS a haplotype object for triple mutant IRN=64%.
+   RULE: Individual allele prevalences are always >= haplotype prevalences. If you derive individual allele % ≤ haplotype %, you have made an error. Re-read the text.
+   Pfcrt haplotypes (CVIET, SVMNT, CVMNK) are codon 72-76 haplotypes — create a haplotype marker object for each.
+
+4. PFKELCH13 WHO CLASSIFICATION (WHO 2023):
    Validated: C580Y, R539T, Y493H, F446I, I543T, P574L, R561H, M476I, P553L, A675V, F656C, R622I, P441L, G449A, C469Y, P667T, H719N, K189T, E252Q
    Candidate: G538V, V568G, R515K
    Not on either list = "not classified". Not Pfkelch13 = "N/A"
+   If paper says "no validated or candidate variants identified" → still extract any named non-synonymous variants (e.g. N629S, N458D) as marker objects with kelch13_who_class="not classified", n_mutant from context or null.
 
-4. MULTIPLE GENES: Create one marker object per allele per gene. Pfkelch13 C469R + Pfcrt K76T + Pfmdr1 N86Y = 3 separate objects minimum.
+5. LARGE TABLES WITH MANY MUTATIONS: If a table lists 10, 20, or 30+ individual mutations (common for Pfkelch13 surveys), extract EVERY named mutation as a separate marker object. Do NOT group them as "other" or "various". If the table is too long, prioritise: (a) all named mutations with counts, (b) mutations with % > 0, (c) even mutations at 0%.
 
-5. HAPLOTYPES: If multi-locus haplotypes are reported (e.g. Pfdhfr triple IRN, Pfcrt CVIET), add them as extra marker objects with haplotype field filled.
+6. MULTIPLE GENES: Create one marker object per allele per gene. Pfkelch13 C469R + Pfcrt K76T + Pfmdr1 N86Y = 3 separate objects minimum.
 
-6. SAMPLING SEASON: West Africa wet season = June-October, dry = November-May. Derive from months if not stated.
+7. HAPLOTYPES: Add multi-locus haplotypes as EXTRA marker objects IN ADDITION TO individual allele objects. Set haplotype field, set allele = haplotype string (e.g. "IRN" or "CVIET"), leave codon as the key codon or "multi-locus".
 
-7. CONFIDENCE NOTES - ALWAYS FILL: Note denominators used, table rendering issues, ambiguities, discrepancies, calculations performed.
+8. SAMPLING SEASON: West Africa wet season = June-October, dry = November-May. Derive from months if not stated.
+
+9. CONFIDENCE NOTES - ALWAYS FILL: Note denominators used, whether back-calculations were performed, table rendering issues, ambiguities, haplotype vs allele distinctions made, discrepancies found.
 
 JSON SCHEMA - return ONLY this JSON, no other text:
 {
