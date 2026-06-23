@@ -5506,15 +5506,17 @@ CRITICAL RULES - READ BEFORE EXTRACTING:
    If paper says "NO non-synonymous Pfkelch13 mutations detected" (truly zero): do NOT create any Pfkelch13 marker object. Never create a fake "none" or "wild-type" marker.
    If only a count is given (e.g. "5 synonymous mutations found"): create ONE object with allele="synonymous variants (unnamed)", n_mutant=count.
 
-5. LARGE TABLES WITH MANY MUTATIONS: If a table lists 10, 20, or 30+ individual mutations (common for Pfkelch13 surveys), extract EVERY named mutation as a separate marker object. Do NOT group them as "other" or "various". If the table is too long, prioritise: (a) all named mutations with counts, (b) mutations with % > 0, (c) even mutations at 0%.
+5. LARGE TABLES: If a table lists 10, 20, or 30+ mutations (common for Pfkelch13 surveys), extract EVERY named mutation as a separate marker object. Do NOT group them as "other" or "various". Prioritise: (a) named mutations with counts, (b) mutations with % > 0, (c) mutations at 0%.
 
-6. MULTIPLE GENES: Create one marker object per allele per gene. Pfkelch13 C469R + Pfcrt K76T + Pfmdr1 N86Y = 3 separate objects minimum.
+6. MULTI-REGION PAPERS: If data is split by region or site (e.g. North n=72, Central n=59, South n=41), extract per-region using the per-region denominator. Create one marker object per mutation per region if different prevalences are reported.
 
-7. HAPLOTYPES: Add multi-locus haplotypes as EXTRA marker objects IN ADDITION TO individual allele objects. Set haplotype field, set allele = haplotype string (e.g. "IRN" or "CVIET"), leave codon as the key codon or "multi-locus".
+7. MULTIPLE GENES: Create one marker object per allele per gene. Pfkelch13 C469R + Pfcrt K76T + Pfmdr1 N86Y = 3 separate objects minimum.
 
-8. SAMPLING SEASON: West Africa wet season = June-October, dry = November-May. Derive from months if not stated.
+8. HAPLOTYPES: Add multi-locus haplotypes as EXTRA objects IN ADDITION TO individual allele objects. Fill the haplotype field; set allele = haplotype string (e.g. "IRN" or "CVIET"); codon = "multi-locus".
 
-9. CONFIDENCE NOTES - ALWAYS FILL: Note denominators used, whether back-calculations were performed, table rendering issues, ambiguities, haplotype vs allele distinctions made, discrepancies found.
+9. SAMPLING SEASON: West Africa wet season = June-October, dry = November-May. Derive from months if not stated. Longitudinal studies spanning multiple years → "year-round".
+
+10. CONFIDENCE NOTES - ALWAYS FILL: Note denominators used, verification checks done (n_mutant/n_genotyped_marker × 100 ≈ prevalence?), back-calculations performed, haplotype vs allele distinctions, table rendering issues, ambiguities.
 
 JSON SCHEMA - return ONLY this JSON, no other text:
 {
