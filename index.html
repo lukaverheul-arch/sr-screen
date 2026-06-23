@@ -5463,8 +5463,8 @@ CRITICAL RULES - READ BEFORE EXTRACTING:
 1. DENOMINATORS - THREE DISTINCT NUMBERS EXIST:
    n_enrolled = total patients recruited / screened
    n_pf_confirmed = patients with confirmed P. falciparum infection (by microscopy/RDT/PCR)
-   n_genotyped = samples SUCCESSFULLY genotyped/sequenced (the actual denominator for ALL prevalence calculations). This is often LESS than n_pf_confirmed due to sequencing failure, poor DNA quality, etc. Look for "successful sequencing rate", "amplification success", "X of Y samples yielded readable sequences", "X samples were successfully genotyped". If a paper says "110 of 159 samples were successfully sequenced", n_genotyped = 110, NOT 159.
-   genotyping_success_rate = n_genotyped / n_pf_confirmed x 100. Calculate yourself if not stated. NEVER assume 100% unless explicitly confirmed.
+   n_genotyped = samples SUCCESSFULLY genotyped/sequenced (the actual denominator for ALL prevalence calculations). This is often LESS than n_pf_confirmed due to sequencing failure, poor DNA quality, etc. Look for "successful sequencing rate", "amplification success", "X of Y samples yielded readable sequences", "X samples were successfully genotyped". If a paper says "110 of 159 samples were successfully sequenced", n_genotyped = 110, NOT 159. CRITICAL: n_submitted ≠ n_genotyped. The number of samples sent for sequencing is NOT the denominator — only the number that produced readable results is.
+   genotyping_success_rate = n_genotyped / n_pf_confirmed x 100. Calculate yourself if not stated. NEVER assume 100% unless explicitly confirmed. If the text says "success rate was 69.18% (110/159)", then n_genotyped = 110.
    n_genotyped_marker = the denominator for THAT SPECIFIC MARKER ONLY. CRITICAL: in multi-gene papers (Pfcrt + Pfmdr1 + Pfdhfr + Pfdhps + Pfkelch13), EACH GENE HAS ITS OWN DENOMINATOR because PCR amplification success differs by locus. NEVER copy the Pfkelch13 denominator to Pfcrt or Pfdhfr etc.
    HOW TO FIND per-marker denominator: (a) Look for a table column labeled "N" or "n tested" or "genotyped" — the value in that column for that gene's row IS the denominator. (b) Look in-text for "pfcrt was genotyped in X samples", "X samples were analysed for pfmdr1". (c) If the paper lists a fraction like "58/236 (24.6%)" then n_mutant=58, n_genotyped_marker=236. (d) LAST RESORT: back-calculate from % — n_genotyped_marker = round(n_mutant / (prevalence/100)). Example: pfcrt K76T = 24.6%, n_mutant = 58 → n_genotyped_marker = round(58/0.246) = 236.
    VERIFICATION: After assigning denominators, check: does n_mutant/n_genotyped_marker × 100 ≈ prevalence_reported? If not, you used the wrong denominator.
@@ -5505,6 +5505,7 @@ CRITICAL RULES - READ BEFORE EXTRACTING:
    If paper says "no validated/candidate variants" BUT names specific variants (e.g. "N629S and N458D detected"): extract each as a separate marker, kelch13_who_class="not classified".
    If paper says "NO non-synonymous Pfkelch13 mutations detected" (truly zero): do NOT create any Pfkelch13 marker object. Never create a fake "none" or "wild-type" marker.
    If only a count is given (e.g. "5 synonymous mutations found"): create ONE object with allele="synonymous variants (unnamed)", n_mutant=count.
+   If individual synonymous variants ARE named (e.g. "P443P, P715P, L514L each found once"): create ONE object per named synonymous variant, using the exact name.
 
 5. LARGE TABLES: If a table lists 10, 20, or 30+ mutations (common for Pfkelch13 surveys), extract EVERY named mutation as a separate marker object. Do NOT group them as "other" or "various". Prioritise: (a) named mutations with counts, (b) mutations with % > 0, (c) mutations at 0%.
 
