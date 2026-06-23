@@ -5358,6 +5358,62 @@ if (records.length > 0) {
 
 // ── AI DATA EXTRACTION SYSTEM ─────────────────────────────────────────────
 
+// Extract full text via Europe PMC XML API (preferred — no CORS issues)
+async function ftGetEpmcFullText(pmcid) {
+  const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/${pmcid}/fullTextXML`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('EPMC XML API returned ' + resp.status);
+  const xmlText = await resp.text();
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, 'application/xml');
+  // Extract text from all sections in order: front (title/abstract), body (methods/results)
+  const sections = [];
+  // Title
+  const title = doc.querySelector('article-title');
+  if (title) sections.push('TITLE: ' + title.textContent.trim());
+  // Authors
+  const contribs = doc.querySelectorAll('contrib[contrib-type="author"] name');
+  if (contribs.length) {
+    const names = Array.from(contribs).slice(0,3).map(n => {
+      const sn = n.querySelector('surname')?.textContent || '';
+      const gn = n.querySelector('given-names')?.textContent || '';
+      return sn + ' ' + gn;
+    });
+    sections.push('AUTHORS: ' + names.join(', ') + (contribs.length > 3 ? ' et al.' : ''));
+  }
+  // Journal + year
+  const journal = doc.querySelector('journal-title');
+  const year = doc.querySelector('pub-date year');
+  if (journal) sections.push('JOURNAL: ' + journal.textContent.trim() + (year ? ' (' + year.textContent + ')' : ''));
+  // Abstract
+  const abs = doc.querySelector('abstract');
+  if (abs) sections.push('ABSTRACT:\n' + abs.textContent.replace(/\s+/g,' ').trim());
+  // Body sections (methods, results, etc.)
+  const body = doc.querySelector('body');
+  if (body) {
+    const secEls = body.querySelectorAll('sec');
+    secEls.forEach(sec => {
+      const heading = sec.querySelector('title');
+      const h = heading ? heading.textContent.trim().toUpperCase() : '';
+      const text = sec.textContent.replace(/\s+/g,' ').trim();
+      sections.push((h ? h + ':\n' : '') + text);
+    });
+    // Also get any tables
+    const tables = body.querySelectorAll('table-wrap');
+    tables.forEach((t, idx) => {
+      const caption = t.querySelector('caption')?.textContent?.trim() || '';
+      const rows = t.querySelectorAll('tr');
+      let tableText = 'TABLE ' + (idx+1) + (caption ? ' — ' + caption : '') + ':\n';
+      rows.forEach(row => {
+        const cells = row.querySelectorAll('th, td');
+        tableText += Array.from(cells).map(c => c.textContent.trim()).join(' | ') + '\n';
+      });
+      sections.push(tableText);
+    });
+  }
+  return sections.join('\n\n').substring(0, 20000);
+}
+
 // Extract text from a PDF URL using pdf.js
 async function ftGetPdfText(pdfUrl) {
   // Dynamically import pdf.js (works as module)
@@ -5438,19 +5494,42 @@ async function ftExtractData() {
   panelEl.style.display = '';
   fieldsEl.innerHTML = '<div style="grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--text3);padding:8px 0">Extracting PDF text...</div>';
   markersEl.innerHTML = '';
-  if (statusEl) statusEl.textContent = 'Reading PDF...';
+  if (statusEl) statusEl.textContent = 'Fetching full text...';
 
-  // Step 1: get text
+  // Step 1: get text — priority order:
+  // (a) pre-injected rec.pdfText, (b) Europe PMC XML API (best), (c) PDF via pdf.js, (d) abstract only
   let pdfText = '';
-  if (rec.pdfUrl) {
-    try {
-      pdfText = await ftGetPdfText(rec.pdfUrl);
-    } catch(e) {
-      // Fallback: use abstract if PDF text extraction fails
-      pdfText = '[PDF text extraction failed: ' + e.message + ']\n\nAbstract: ' + (rec.abstract || '');
-    }
+  if (rec.pdfText) {
+    // Pre-injected text (ground truth or manual paste)
+    pdfText = rec.pdfText;
+    if (statusEl) statusEl.textContent = 'Using pre-loaded text...';
   } else {
-    pdfText = 'No PDF available. Abstract only:\n\n' + (rec.abstract || '(no abstract)');
+    // Try Europe PMC XML API using PMCID from pdfUrl or pmcid field
+    const pmcidMatch = (rec.pdfUrl || '').match(/PMC\d+/);
+    const pmcid = pmcidMatch ? pmcidMatch[0] : (rec.pmcid || null);
+    let gotFullText = false;
+    if (pmcid) {
+      try {
+        if (statusEl) statusEl.textContent = 'Fetching Europe PMC full text...';
+        pdfText = await ftGetEpmcFullText(pmcid);
+        gotFullText = true;
+      } catch(e) {
+        console.warn('EPMC XML failed for ' + pmcid + ':', e.message);
+      }
+    }
+    if (!gotFullText && rec.pdfUrl) {
+      // Fallback: try PDF via pdf.js
+      try {
+        if (statusEl) statusEl.textContent = 'Fetching PDF...';
+        pdfText = await ftGetPdfText(rec.pdfUrl);
+        gotFullText = true;
+      } catch(e) {
+        console.warn('PDF fetch failed:', e.message);
+      }
+    }
+    if (!gotFullText) {
+      pdfText = 'Full text unavailable. Abstract only:\n\n' + (rec.abstract || '(no abstract)');
+    }
   }
 
   if (statusEl) statusEl.textContent = 'Sending to AI...';
